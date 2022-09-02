@@ -1,0 +1,1650 @@
+'############################################################################
+'##
+'##
+'##					Klassen für Artikel
+'##					-------------------
+'##		
+'##		Poco: Der Konstrucktor besorgt automatisch aus der AS400 alle Propertys 
+'##
+'##		Tedox, Amazon, Hammer, Hoeffner, Amazon:				
+'##		
+'##				Teilweise wegen dem stark eingeschränkten IE11 etwas langsam
+'##				am ende wird aber über alle zumindest der Preis ausgelesen 	
+'##				und übergeben.
+'##
+'##		Roller: Leider auf etlichen Systemen im Unternemen nicht möglich da der
+'##				IE11 zustark beschnitten wird und daher der zum auslesen
+'##				benötigte JSON-Container nicht in der Source mit drin ist.
+'##
+'##
+'############################################################################
+
+Class Artikel
+	
+	Private art_Nummer
+	Private art_Ausfuehrung
+	Private art_Name
+	Private art_Name2
+	Private art_Name3
+	Private art_EAN
+	Private art_ausstellung
+	Private art_lager
+	Private art_iwv
+	Private art_Warengruppe
+	Private art_UWarengruppe
+	Private art_Lieferant(1)
+	Private art_Preis(2)
+	Private art_Kalkulation
+	Private art_Lieferzeit
+	Private art_Kennzeichen
+	Private art_VE
+	Private art_Auslauf 'Boolean
+	Private art_Geloescht'Boolean
+	Private art_minmax(1)
+	
+	'## Eigenschaften in Aufträgen
+	private art_posort
+	private art_posmarkt
+	private art_posstpl
+	private art_poswert
+	private art_posab
+	private art_poswe
+	private art_posli
+	private art_posrg
+	private art_posge
+	private art_postk
+	private art_posdispokz
+	private art_posmenge
+	private art_posliefertermin
+	private art_posabteilung
+	
+	Public Default Function Init(nummer)
+		'# am besten Artikelnummern übergeben mit Trennzeichen /
+		If InStr(1, nummer, "/", 0) > 0 Then
+			art_Nummer = Split(nummer, "/")(0)
+			art_Ausfuehrung = Split(nummer, "/")(1)
+			If len(art_Nummer) < 7 Then 
+				art_Nummer = String(7-len(art_Nummer), "0") & art_Nummer
+			End If
+		ElseIf len(nummer) = 9 Then
+			art_Nummer = Left(nummer, 7)
+			art_Ausfuehrung = Right(nummer, 2)			
+		ElseIf len(nummer) = 8 Then
+			art_Nummer = Left(nummer, 7)
+			art_Ausfuehrung = "0" & Right(nummer, 1)
+		ElseIf len(nummer) = 7 Then
+			art_Nummer = nummer
+			art_Ausfuehrung = "00"			
+		Else
+			Init = False
+		End If
+		If len(nummer) > 0 AND len(nummer) < 7 Then
+			Dim nr1: nr1 = String(7-len(nummer), "0") & nummer
+			art_Nummer = nr1		
+		End If
+		Set Init = Me
+	End Function
+	
+	'******* Get ********
+	Public Property Get Nr
+		Nr = art_Nummer
+	End Property
+	Public Property Get Ausfuehrung
+		Ausfuehrung = art_Ausfuehrung
+	End Property
+		Public Property Get Name
+		Name = art_Name
+	End Property
+	Public Property Get Name2
+		Name2 = art_Name2
+	End Property
+	Public Property Get Name3
+		Name3 = art_Name3
+	End Property
+	Public Property Get EAN
+		EAN = art_EAN
+	End Property
+	Public Property Get WGR
+		If InStrRegEx(art_Warengruppe, "^[0-9]{3}$", false) = false Then art_Warengruppe = 0
+		WGR = CInt(art_Warengruppe)
+	End Property
+	Public Property Get UWGR
+		If art_UWarengruppe = "" Then art_UWarengruppe = 0
+		UWGR = CInt(art_UWarengruppe)
+	End Property
+	Public Property Get Ausstellung
+		If art_ausstellung = "" OR art_ausstellung = "0,00" Then
+			Ausstellung = 0
+		Else	
+			If IsMeterware(art_Warengruppe) = False Then
+				Ausstellung = CInt(Split(art_ausstellung, ",")(0))
+			Else
+				Ausstellung = CSng(art_ausstellung)
+			End If
+		End If	
+	End Property
+	Public Property Get Lager
+		If art_lager = "" OR InStrRegEx(art_lager, "[^/d]*$", false) = false Then
+			Lager = 0
+		Else	
+			If IsMeterware(art_Warengruppe) = False Then
+				Lager = CInt(Split(art_lager, ",")(0))
+			Else
+				Lager = CSng(art_lager)
+			End If
+		End If
+	End Property
+	Public Property Get IWV
+		If art_iwv = "" OR art_iwv = "+" OR InStrRegEx(art_iwv, "[^/d]*$", false) = false Then
+			IWV = 0
+		Else	
+			If IsMeterware(art_Warengruppe) = False Then
+				IWV = CInt(Split(art_iwv, ",")(0))
+			Else
+				IWV = CSng(art_iwv)
+			End If
+		End If
+	End Property
+	Public Property Get Auslauf 
+		Auslauf = CBool(art_Auslauf)
+	End Property
+	Public Property Get Geloescht
+		If art_Geloescht = "1387" Then 
+			Geloescht = True 
+		Else 
+			Geloescht = False
+		End If
+	End Property
+	Public Property Get Mindestbestand
+		If art_minmax(0) = "" OR InStrRegEx(art_minmax(0), "[^/d]*$", false) = false Then
+			Mindestbestand = 0
+		Else	
+			If IsMeterware(art_Warengruppe) = False Then
+				Mindestbestand = CInt(Split(art_minmax(0), ",")(0))
+			Else
+				Mindestbestand = CSng(art_minmax(0))
+			End If
+		End If
+	End Property
+	Public Property Get Maximalbestand
+		If art_minmax(1) = "" OR InStrRegEx(art_minmax(1), "[^/d]*$", false) = false Then
+			Maximalbestand = 0
+		Else	
+			If IsMeterware(art_Warengruppe) = False Then
+				Maximalbestand = CInt(Split(art_minmax(1), ",")(0))
+			Else
+				Maximalbestand = CSng(art_minmax(1))
+			End If
+		End If
+	End Property
+	Public Property Get LieferantNr
+		LieferantNr = art_Lieferant(0)
+	End Property
+	Public Property Get LieferantName
+		LieferantName = art_Lieferant(1)
+	End Property
+	Public Property Get PreisAktuell
+		If art_Preis(2) <> "" Then
+			PreisAktuell = CSng(art_Preis(2))
+		Else
+			PreisAktuell = CSng(art_Preis(0))
+		End If	
+	End Property
+	Public Property Get PreisNormal
+		PreisNormal = CSng(art_Preis(0))
+	End Property
+	Public Property Get Kalkulation
+		Kalkulation = art_Kalkulation
+	End Property
+	Public Property Get Lieferzeit
+		Lieferzeit = art_Lieferzeit
+	End Property
+	Public Property Get Kennzeichen
+		Kennzeichen = art_Kennzeichen
+	End Property
+	Public Property Get VE
+		If art_VE = "" Then art_VE = 0
+		VE = CInt(art_VE)
+	End Property
+	Public Property Get PosMenge
+		PosMenge = art_posmenge
+	End Property
+	Public Property Get PosLiefertermin
+		art_posliefertermin = value
+	End Property
+	Public Property Get PosAbteilung
+		PosAbteilung = art_posabteilung
+	End Property
+	Public Property Get PosOrt
+		PosOrt = art_posort	
+	End Property
+	Public Property Get PosMarkt
+		PosMarkt = art_posmarkt
+	End Property
+	Public Property Get PosStPl
+		PosStPl = art_posstpl
+	End Property
+	Public Property Get PosWert
+		PosWert = art_poswert
+	End Property
+	Public Property Get PosAB
+		PosAB = art_posab
+	End Property
+	Public Property Get PosWE
+		PosWE = art_poswe
+	End Property
+	Public Property Get PosLI
+		PosLI =art_posli
+	End Property
+	Public Property Get PosRG
+		PosRG =art_posrg
+	End Property
+	Public Property Get PosGE
+		PosGE = art_posge
+	End Property
+	Public Property Get PosTK
+		PosTK = art_postk
+	End Property
+	Public Property Get PosDispoKZ
+		PosDispoKZ = art_posdispokz
+	End Property
+	
+	'****** Set/Let *********
+	Public Property Let Bezeichnung(value)
+		art_Name = value
+	End Property
+	Public Property Let WGR(value)
+		art_Warengruppe = CInt(value)
+	End Property
+	Public Property Let UWGR(value)
+		art_UWarengruppe = CInt(value)
+	End Property
+	Public Property Let Lieferant(value)
+		art_Lieferant(0) = value
+	End Property
+	Public Property Let Ausstellung(value)
+		art_ausstellung = value
+	End Property
+	Public Property Let Lager(value)
+		art_lager = value
+	End Property
+	Public Property Let IWV(value)
+		art_iwv = value
+	End Property
+	Public Property Let Mindestbestand(value)
+		art_minmax(0) = value
+	End Property
+	Public Property Let Maximalbestand(value)
+		art_minmax(1) = value
+	End Property
+	Public Property Let PosOrt(value)
+		art_posort = value		
+	End Property
+	Public Property Let PosMarkt(value)
+		art_posmarkt = value
+	End Property
+	Public Property Let PosStPl(value)
+		art_posstpl = value
+	End Property
+	Public Property Let PosWert(value)
+		art_poswert = value
+	End Property
+	Public Property Let PosAB(value)
+		art_posab = value
+	End Property
+	Public Property Let PosWE(value)
+		art_poswe = value
+	End Property
+	Public Property Let PosLI(value)
+		art_posli = value
+	End Property
+	Public Property Let PosRG(value)
+		art_posrg = value
+	End Property
+	Public Property Let PosGE(value)
+		art_posge = value
+	End Property
+	Public Property Let PosTK(value)
+		art_postk = value
+	End Property
+	Public Property Let PosDispoKZ(value)
+		art_posdispokz = value
+	End Property
+	Public Property Let PosMenge(value)
+		art_posmenge = value
+	End Property
+	Public Property Let PosLiefertermin(value)
+		art_posliefertermin = value
+	End Property
+	Public Property Let PosAbteilung(value)
+		art_posabteilung = value
+	End Property
+		
+	'##### Main Functions #####
+	Public Function Search_Data(byVal modus)
+		call SendKeys("[pf3][pf3]")
+		call RunMenue("BAU", art_Nummer & art_Ausfuehrung)
+		art_Name = GetText(5, 11, 35)
+		art_Name2 = GetText(6, 11, 35)
+		art_Name3 = GetText(7, 11, 35)
+		art_ausstellung = GetText(6, 74, 7)
+		art_Warengruppe = GetText(6, 2, 3)
+		art_UWarengruppe = GetText(6, 8, 2)
+		art_Lieferant(0) = GetText(4, 6, 4)
+		art_Lieferant(1) = GetText(4, 11, 33)
+		art_Preis(0) = GetText(10, 75, 6)
+		art_Preis(1) = GetText(11, 75, 6)
+		art_Preis(2) = GetText(10, 40, 6)
+		art_Kalkulation = GetText(7, 58, 1)
+		art_Lieferzeit = GetText(8, 55, 3)
+		art_Kennzeichen = GetText(9, 51, 1)
+		if GetText(7, 55, 2) = "AS" OR GetText(9, 11, 7) = "Auslauf" Then
+			art_Auslauf = True
+		Else
+			art_Auslauf = False
+		End If
+		art_Geloescht = GetText(24, 2, 4)
+		call SendKeys("[pf3][pf3]")
+		If modus = 1 Then
+			call RunMenue("ARV", art_Nummer & "/" & art_Ausfuehrung): SendKeys("[enter]")
+			art_EAN = GetText(8, 20, 13)
+			art_VE = GetText(17, 20, 4)
+			call SendKeys("[pf17]")
+			If InStrRegEx(GetText(8, 35, 8), "[a-zA-Z]*", false) = false Then
+				art_minmax(0) = GetText(8, 35, 8)
+			Else
+				art_minmax(0) = 0
+			End If
+			If InStrRegEx(GetText(8, 44, 8), "[a-zA-Z]*", false) = false Then 
+				art_minmax(1) = GetText(8, 44, 8)
+			Else 
+				art_minmax(1) = 0
+			End If
+			call SendKeys("[pf3][pf3][pf3][pf3][pf3]")
+		End If
+	End Function
+	
+	Public Function MinMaxSetting(byVal min, byVal max, byVal markt)
+		call SendKeys("[pf3][pf3][pf3]")
+		If CheckForUserpower() = 3 Then
+			call SendKeys("08[enter]01[enter]")
+			call SendKeys(art_Nummer & art_Ausfuehrung & "[enter][pf17]")
+			'suche nach vorhandenen Eintrag
+			If GetText(9, 2, 20) = "Ort................." Then 
+				call SetCursor(9, 24): call SendKeys("N" & markt)
+			Else
+				Dim i:i=8
+				Do
+					If InStr(GetText(i, 7, 3), markt) Then 
+						call SetCursor(i, 2): call SendKeys("x[enter]")
+						Exit Do
+					ElseIf GetText(i, 7, 3) = "" Then 
+						call SetCursor(8, 2): call SendKeys("c[enter]N" & markt)
+						Exit Do
+					End If
+					i=i+1
+				Loop While True
+			End If
+			call SetCursor(9, 51)
+			call SendKeys("1[field+]" & min & "[field+]" & max & "[field+]")
+			call SendKeys("[pf3][pf3][pf3][pf3]")
+		Else 
+			MsgBox("Berechtigungen reichen nicht aus zum setzen neuer Min/Max Werte!")
+		End If
+	End Function
+	
+End Class
+
+
+'############################################################################
+
+Class Tedox
+	
+	Private objIE
+	Private thisURL
+
+	Private a_Nummer
+	Private a_Name
+	Private a_Preis
+	
+	Public Default Function Init(nummer)
+		a_Nummer = nummer
+		call Search_Data()
+
+		Set Init = Me
+	End Function
+	
+	Public Property Get Nr
+		Nr = a_Nummer
+	End Property
+	Public Property Get Name
+		Name = a_Name
+	End Property
+	Public Property Get Preis
+		Preis = a_Preis
+	End Property
+	
+	Private Function Search_Data()
+		Dim dataload
+		Set objIE = CreateObject("InternetExplorer.Application")
+		thisURL = "https://www.tedox.de/catalogsearch/result/?q=" & a_Nummer
+
+		objIE.Visible = False
+		objIE.Toolbar = False
+		objIE.StatusBar = False
+		'objIE.Resizable =1
+		'objIE.Height = 280
+		'objIE.Width = 400
+
+		objIE.Navigate(thisURL)
+		Do While objIE.Busy Or objIE.readyState <> 4
+			'...warten auch fertig geladenen Browser
+		Loop
+		Do While objIE.Document.ReadyState <> "complete"
+			'... warten auf Anweisungen 
+		Loop
+		
+		objIE.document.getElementsByClassName("link-to-cart")(0).Click()
+		Do While objIE.Busy Or objIE.readyState <> 4
+			'...warten auch fertig geladenen Browser
+		Loop
+		Do While objIE.Document.ReadyState <> "complete"
+			'... warten auf Anweisungen 
+		Loop
+		dataload = objIE.document.getElementsByClassName("price")(1).innerText
+		a_Preis = CSng(Trim(replace(dataload, Right(dataload, 3), "")))
+		a_Name = objIE.document.getElementsByClassName("base")(0).innerText
+		
+		set objIE = Nothing
+		call WinKillProcess("iexplore.exe")
+	End Function
+End Class
+
+'############################################################################
+
+Class Roller
+	
+	Private objIE
+	Private thisURL
+
+	Private a_Nummer
+	Private a_Name
+	Private a_Preis
+	
+	Public Default Function Init(nummer)
+		a_Nummer = nummer
+		call Search_Data()
+
+		Set Init = Me
+	End Function
+	
+	Public Property Get Nr
+		Nr = a_Nummer
+	End Property
+	Public Property Get Name
+		Name = a_Name
+	End Property
+	Public Property Get Preis
+		Preis = a_Preis
+	End Property
+	
+	Private Function Search_Data()
+		Dim dataload, dataload2, search, search2, result, result2
+		Set objIE = CreateObject("InternetExplorer.Application")
+		thisURL = "https://www.roller.de/" & a_Nummer
+		search = "product_price" & chr(34) & ":" & chr(34)
+		search2 = chr(34) & "," & chr(34) & "product_name"
+
+		objIE.Visible = False
+		objIE.Toolbar = False
+		objIE.StatusBar = False
+
+		objIE.Navigate(thisURL)
+		 
+		Do While objIE.Busy Or objIE.readyState <> 4
+			'...warten auch fertig geladenen Browser
+		Loop
+		Do While objIE.Document.ReadyState <> "complete"
+			'... warten auf Anweisungen 
+		Loop
+
+		set dataload = objIE.document.querySelectorAll("div")
+		result = dataload.Item(479).InnerHTML
+		
+		result2 = Right(result, len(result) - InstrRev(result, search) - 15)
+		result = Left(result2, InStr(result2, search2) - 1)
+		result2 =  replace(result, ".", ",")
+	
+		a_Preis = CSng(result2)
+		'a_Name = objIE.document.getElementsByClassName("Breadcrumbs__link active")(0).innerText
+		
+		set objIE = Nothing
+		call WinKillProcess("iexplore.exe")
+	End Function
+	
+End Class
+
+'############################################################################
+
+Class Boss
+	
+	Private objIE
+	Private thisURL
+
+	Private a_Nummer
+	Private a_ausfuehrung
+	Private a_Name
+	Private a_Preis
+	
+	Public Default Function Init(nummer)
+		a_Nummer = Left(nummer, 6)
+		a_ausfuehrung = Right(nummer, 2)
+		call Search_Data()
+
+		Set Init = Me
+	End Function
+	
+	Public Property Get Nr
+		Nr = a_Nummer
+	End Property
+	Public Property Get Name
+		Name = a_Name
+	End Property
+	Public Property Get Preis
+		Preis = a_Preis
+	End Property
+	
+	Private Function Search_Data()
+		Dim dataload
+		Set objIE = CreateObject("InternetExplorer.Application")
+		thisURL = "https://moebel-boss.de/search/" & a_Nummer & "." & a_ausfuehrung
+
+		objIE.Visible = False
+		objIE.Toolbar = False
+		objIE.StatusBar = False
+
+		objIE.Navigate(thisURL)
+		 
+		Do While objIE.Busy Or objIE.readyState <> 4
+			'...warten auch fertig geladenen Browser
+		Loop
+		Do While objIE.Document.ReadyState <> "complete"
+			'... warten auf Anweisungen 
+		Loop
+		
+		objIE.document.getElementsByClassName("btn btn-link button-add cx-action-link opacityOne ng-star-inserted")(0).Click()
+		Do While objIE.Busy Or objIE.readyState <> 4
+			'...warten auch fertig geladenen Browser
+		Loop
+		Do While objIE.Document.ReadyState <> "complete"
+			'... warten auf Anweisungen 
+		Loop
+		dataload = objIE.document.getElementsByClassName("price")(0).getElementsByClassName("ng-star-inserted")(0).innerText
+		a_Preis = CSng(Trim(replace(dataload, Right(dataload, 2), "")))
+		a_Name = objIE.document.getElementsByClassName("cx-product-name")(0).innerText
+		set objIE = Nothing
+		call WinKillProcess("iexplore.exe")
+	End Function
+End Class
+
+'############################################################################
+
+Class Amazon
+	
+	Private objIE
+	Private thisURL
+
+	Private a_Nummer 'String da Amazon auch Buchstaben verwendet
+	Private a_Name
+	Private a_Preis
+	
+	Public Default Function Init(nummer)
+		a_Nummer = nummer
+		call Search_Data()
+
+		Set Init = Me
+	End Function
+	
+	Public Property Get Nr
+		Nr = a_Nummer
+	End Property
+	Public Property Get Name
+		Name = a_Name
+	End Property
+	Public Property Get Preis
+		Preis = a_Preis
+	End Property
+	
+	Private Function Search_Data()
+		Dim dataload, dataload2
+		Set objIE = CreateObject("InternetExplorer.Application")
+		thisURL = "https://www.amazon.de/dp/" & a_Nummer
+
+		objIE.Visible = False
+		objIE.Toolbar = False
+		objIE.StatusBar = False
+		'objIE.Resizable =1
+		'objIE.Height = 280
+		'objIE.Width = 400
+
+		objIE.Navigate(thisURL)
+		 
+		Do While objIE.Busy Or objIE.readyState <> 4
+			'...warten auch fertig geladenen Browser
+		Loop
+		Do While objIE.Document.ReadyState <> "complete"
+			'... warten auf Anweisungen 
+		Loop
+		
+		dataload = objIE.document.getElementsByClassName("a-price-whole")(0).innertext
+		dataload2 = objIE.document.getElementsByClassName("a-price-fraction")(0).innertext
+		a_Preis = CSng(Trim(dataload & "." & dataload2))
+		'a_Name = 
+		
+		set objIE = Nothing
+		call WinKillProcess("iexplore.exe")
+	End Function
+End Class
+
+'############################################################################
+
+Class Hoeffner
+	
+	Private objIE
+	Private thisURL
+
+	Private a_Nummer
+	Private a_Name
+	Private a_Preis
+	
+	Public Default Function Init(nummer)
+		a_Nummer = nummer
+		call Search_Data()
+
+		Set Init = Me
+	End Function
+	
+	Public Property Get Nr
+		Nr = a_Nummer
+	End Property
+	Public Property Get Name
+		Name = a_Name
+	End Property
+	Public Property Get Preis
+		Preis = a_Preis
+	End Property
+	
+	Private Function Search_Data()
+		Dim dataload
+		Set objIE = CreateObject("InternetExplorer.Application")
+		thisURL = "https://www.hoeffner.de/artikel/" & a_Nummer
+
+		objIE.Visible = False
+		objIE.Toolbar = False
+		objIE.StatusBar = False
+		'objIE.Resizable =1
+		'objIE.Height = 280
+		'objIE.Width = 400
+
+		objIE.Navigate(thisURL)
+		 
+		Do While objIE.Busy Or objIE.readyState <> 4
+			'...warten auch fertig geladenen Browser
+		Loop
+		Do While objIE.Document.ReadyState <> "complete"
+			'... warten auf Anweisungen 
+		Loop
+		
+		dataload = objIE.document.getElementsByClassName("articlePrice__integer")(0).innertext & "," & objIE.document.getElementsByClassName("articlePrice__fraction articlePrice__fraction--")(0).innertext
+		a_Preis = CSng(Trim(dataload))
+		'a_Name = 
+		
+		set objIE = Nothing
+		call WinKillProcess("iexplore.exe")
+	End Function
+End Class
+
+'############################################################################
+
+Class Hammer
+	
+	Private objIE
+	Private thisURL
+
+	Private a_Nummer
+	Private a_Name
+	Private a_Preis
+	
+	Public Default Function Init(nummer)
+		a_Nummer = nummer
+		call Search_Data()
+
+		Set Init = Me
+	End Function
+	
+	Public Property Get Nr
+		Nr = a_Nummer
+	End Property
+	Public Property Get Name
+		Name = a_Name
+	End Property
+	Public Property Get Preis
+		Preis = a_Preis
+	End Property
+	
+	Private Function Search_Data()
+		Dim dataload
+		Set objIE = CreateObject("InternetExplorer.Application")
+		thisURL = "https://www.hammer-zuhause.de/p/" & a_Nummer
+
+		objIE.Visible = False
+		objIE.Toolbar = False
+		objIE.StatusBar = False
+		'objIE.Resizable =1
+		'objIE.Height = 280
+		'objIE.Width = 400
+
+		objIE.Navigate(thisURL)
+		 
+		Do While objIE.Busy Or objIE.readyState <> 4
+			'...warten auch fertig geladenen Browser
+		Loop
+		Do While objIE.Document.ReadyState <> "complete"
+			'... warten auf Anweisungen 
+		Loop
+		
+		dataload = objIE.document.getElementsByClassName("a-price__value")(0).innertext
+		a_Preis = CSng(Trim(dataload))
+		'a_Name = 
+		
+		set objIE = Nothing
+		call WinKillProcess("iexplore.exe")
+	End Function
+End Class
+
+
+'############################################################################
+'##
+'##					Klasse für Lieferanten
+'##					-----------------------
+'##
+'############################################################################
+
+Class Lieferant
+
+	private lief_nummer
+	private lief_name
+	private lief_kurzname
+	private lief_adresse
+	private lief_plz
+	private lief_ort
+	private lief_land
+	private lief_email
+	private lief_tel
+	private lief_fax
+	private lief_gln	'Global Location Number
+	private lief_minbestellwert
+	
+	private lief_bankname
+	private lief_bankland
+	private lief_bankleitzahl
+	private lief_bankkontonummer
+	private lief_bankswift
+	private lief_bankiban
+	private lief_banksteuerid
+	
+	Public Default Function Init(nummer)
+		call SendKeys("[pf3]")
+		call SendKeys("[pf3]")	
+		call RunMenue("LIV", nummer)
+		Set Init = Me
+	End Function
+	
+	Public Function Search_Data()
+		If GetText(24,02, 4) = "0046" Then
+			
+		Else
+			lief_nummer = GetText(2, 44, 6)
+			lief_name = GetText(5, 18, 30)
+			lief_kurzname = GetText(5, 61, 10)
+			lief_adresse = GetText(8, 18, 30)
+			lief_plz = GetText(10, 27, 7)
+			lief_ort = GetText(10, 39, 30)
+			lief_land = GetText(10, 18, 3)
+			lief_tel = GetText(11, 18, 30)
+			lief_fax = GetText(12, 18, 30)
+			lief_gln = GetText(9, 61, 13)
+			lief_minbestellwert =  GetText(9, 18, 7)
+			
+			call SendKeys("[pf2]")
+			lief_banksteuerid = GetText(5, 18, 20)
+			call SendKeys("[pf3]")
+			call SendKeys("[pf14]")
+			lief_email = GetText(14, 14, 45)
+			call SendKeys("[pf4]")
+			
+			call SendKeys("[ENTER]")
+			lief_bankname = GetText(11, 8, 30) & GetText(12, 8, 30) & GetText(13, 8, 30)
+			lief_bankland = GetText(15, 8, 3)
+			lief_bankleitzahl = GetText(11, 40, 12)
+			lief_bankkontonummer = GetText(12, 40, 20)
+			lief_bankswift =  GetText(13, 40, 35)
+			lief_bankiban =  GetText(14, 40, 35)
+			
+		End If
+	End Function
+
+	Public Property Get Nr
+		Nr = lief_nummer
+	End Property
+	Public Property Get Name
+		Name = lief_name
+	End Property
+	Public Property Get Adresse
+		Adresse = lief_adresse
+	End Property
+	Public Property Get PLZ
+		PLZ = lief_plz
+	End Property
+	Public Property Get Ort
+		Ort = lief_ort
+	End Property
+	Public Property Get Land
+		Land = lief_land
+	End Property
+	Public Property Get Email
+		Email = lief_email
+	End Property
+	Public Property Get Tel
+		Tel = lief_tel
+	End Property
+	Public Property Get Fax
+		Fax = lief_fax
+	End Property
+	Public Property Get GLN
+		GLN = lief_gln
+	End Property
+	Public Property Get KurzName
+		KurzName = lief_kurzname
+	End Property
+	Public Property Get MinBestellWert
+		MinBestellWert = lief_minbestellwert
+	End Property
+	Public Property Get BankName
+		BankName = lief_bankname
+	End Property
+	Public Property Get BankLand
+		BankLand = lief_bankland
+	End Property
+	Public Property Get BankLZ
+		BankLZ = lief_bankleitzahl
+	End Property
+	Public Property Get BankKontoNr
+		BankKontoNr = lief_bankkontonummer
+	End Property
+	Public Property Get BankSwift
+		BankSwift = lief_bankswift
+	End Property
+	Public Property Get BankIBAN
+		BankIBAN = lief_bankiban
+	End Property
+	Public Property Get SteuerID
+		SteuerID = lief_banksteuerid
+	End Property
+End Class
+
+
+'############################################################################
+'##
+'##
+'##					Klasse für Kaufverträge
+'##					-----------------------
+'##
+'##
+'############################################################################
+
+Class Auftrag
+	private auf_nummer	'KV nummer
+	private auf_saldo	'Int
+	private auf_status	'Int 
+	private auf_online	'Boolean True = Onlinekauf, False = Kauf im Markt
+	private auf_wert	'String
+	private auf_ersteller	'String
+	private auf_erstellernr	'Int
+	private auf_erstelldatum'String
+	private auf_lieferdatum	'Kw wird auf Tag des letzten Sonntags gesetzt
+	private auf_zahlungsart	'Int
+	private auf_zahlungsartname	'String
+	private auf_zusatzhinweis	'string
+	private auf_lieferung	'Boolean
+	private auf_reklamation 'Boolean
+	private auf_fahrtrichtung 'String
+	private auf_verarbeitungshinweis 'Integer 1=Kassenauftrag 2=Bestellung
+	'*** Kundendaten ***
+	private auf_kundennummer 'Long
+	private auf_anrede	'String
+	private auf_nachname'String
+	private auf_vorname	'String
+	private auf_strasse	'String
+	private auf_hausnr	'String
+	private auf_plz		'String
+	private auf_ort		'String
+	private auf_telefonnr 'String
+	private auf_handynr	'String
+	'*** Auftragspositionen ***
+	private auf_posObject() 'Object der Klasse Artikel
+	private auf_poscursorposition()	
+	'*** Prüfvariable ***
+	private auf_check	'Boolean
+	
+	Public Default Function Init(nummer)
+		ReDim Preserve auf_posObject(0)
+		ReDim Preserve auf_poscursorposition(0)
+		auf_check = True
+		
+		If len(nummer) = 7 Then
+			auf_nummer = nummer
+		ElseIf len(nummer) > 7 Then 
+			auf_nummer = Left(nummer, 7)
+		Else 
+			Auftrag = False
+		End If
+		
+		call Search_Data() 'Eigenschaften des Objects suchen
+		Set Init = Me
+	End Function
+		
+	private Function Search_Data()
+		call SendKeys("[pf3]"): call SendKeys("[pf3]")
+		call RunMenue("AAU", auf_nummer)
+		If GetText(24, 16, 4) <> "1253" Then
+			call CheckForSaldo()
+			call CheckForStatus()
+			call CheckForOnline()
+			call CheckForWert()
+			call CheckForErsteller()
+			call CheckForErstellerNr()
+			call CheckForErstellDatum()
+			call CheckForZahlungsart()
+			call CheckForLieferDatum()
+			call CheckForLieferung()
+			call CheckForKundendaten()
+			call CheckForReklamation()
+			call CheckForZusatzhinweis()
+			call SendKeys("[enter]")
+			call CheckForPositionsdaten()
+			call SendKeys("[pf3]"): call SendKeys("[pf3]")
+		Else
+			auf_check = False
+			call SendKeys("[pf3]")
+		End If
+	End Function
+	
+	'*** Propertys ***
+	Public Property Get Check
+		Check = auf_check
+	End Property
+	Public Property Get Nr
+		Nr = auf_nummer
+	End Property
+	Public Property Get Saldo
+		Saldo = auf_saldo
+	End Property
+	Public Property Get Status
+		Status = auf_status
+	End Property
+	Public Property Get VerarbeitungsHinweis
+		If InStr(auf_verarbeitungshinweis, "Kassenauftrag") Then 
+			VerarbeitungsHinweis = 1
+		ElseIf InStr(auf_verarbeitungshinweis, "Bestellung") Then 
+			VerarbeitungsHinweis = 2
+		Else
+			VerarbeitungsHinweis = 0	'Kein Hinweis
+		End If
+	End Property
+	Public Property Get Online
+		Online = auf_online
+	End Property
+	Public Property Get Wert
+		Wert = auf_wert
+	End Property
+	Public Property Get Ersteller
+		Ersteller = auf_ersteller
+	End Property
+	Public Property Get ErstellerNr
+		ErstellerNr = auf_erstellernr
+	End Property
+	Public Property Get ErstellDatum
+		ErstellDatum = auf_erstelldatum
+	End Property
+	Public Property Get Zahlungsart
+		Zahlungsart = auf_zahlungsart
+	End Property
+	Public Property Get Zahlungsartname
+		Select Case auf_zahlungsart
+		Case 1
+			Zahlungsartname = "Bar"
+		Case 2
+			Zahlungsartname = "Finanzierung"
+		Case 3
+			Zahlungsartname = "Anteilige Finanzierung"
+		Case 4
+			Zahlungsartname = "Kauf auf Rechnung"
+		Case 22
+			Zahlungsartname = "PayPal"
+		Case 23
+			Zahlungsartname = "Vorkasse"
+		Case 24
+			Zahlungsartname = "Finanzierung-Online"
+		Case 26
+			Zahlungsartname = "Bar Online-Bestellung/Abholung"
+		Case 27
+			Zahlungsartname = "Klarna-Rechnungskauf"
+		Case 28
+			Zahlungsartname = "Klarna-Sofortüberweisung"
+		Case 29
+			Zahlungsartname = "Klarna-Ratenkauf"
+		Case 30
+			Zahlungsartname = "Kreditkarte"
+		Case 31
+			Zahlungsartname = "Klarna-Lastschrift"
+		Case Else
+			Zahlungsartname = "-"
+		End Select
+	End Property
+	Public Property Get Zusatzhinweis
+		Zusatzhinweis = auf_zusatzhinweis
+	End Property
+	Public Property Get LieferDatum
+		LieferDatum = auf_lieferdatum
+	End Property
+	Public Property Get Lieferung
+		Lieferung = auf_lieferung
+	End Property
+	Public Property Get Fahrtrichtung
+		Fahrtrichtung = auf_fahrtrichtung
+	End Property
+	Public Property Get Reklamation
+		Reklamation = auf_reklamation
+	End Property
+	Public Property Get KundenNr
+		KundenNr = auf_kundennummer
+	End Property
+	Public Property Get Vorname
+		Vorname = auf_vorname
+	End Property
+	Public Property Get Nachname
+		Nachname = auf_nachname
+	End Property
+	Public Property Get Anrede
+		Anrede = auf_anrede
+	End Property
+	Public Property Get Strasse
+		Strasse = auf_strasse
+	End Property
+	Public Property Get HausNr
+		HausNr = auf_hausnr
+	End Property
+	Public Property Get PLZ
+		PLZ = auf_plz
+	End Property
+	Public Property Get Ort
+		Ort = auf_ort
+	End Property
+	Public Property Get TelefonNr
+		TelefonNr = auf_telefonnr
+	End Property
+	Public Property Get HandyNr
+		HandyNr = auf_handynr
+	End Property
+	
+	' Ausgabe der einzelnen Positionswerte
+	Public Property Get PosAnzahl()
+		PosAnzahl = UBound(auf_posObject)
+	End Property
+	Public Property Get PosNr(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosNr = auf_posObject(i).Nr
+	End Property
+	Public Property Get PosAusfuehrung(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosAusfuehrung = auf_posObject(i).Ausfuehrung
+	End Property
+	Public Property Get PosLieferant(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosLieferant = auf_posObject(i).Lieferant
+	End Property
+	Public Property Get PosWarengruppe(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosWarengruppe = auf_posObject(i).WGR
+	End Property
+	Public Property Get PosWert(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosWert = auf_posObject(i).PosWert
+	End Property
+	Public Property Get PosOrt(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosOrt = auf_posObject(i).PosOrt
+	End Property
+	Public Property Get PosMarkt(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosMarkt = auf_posObject(i).PosMarkt
+	End Property
+	Public Property Get PosStPl(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosStPl = auf_posObject(i).PosStPl
+	End Property
+	Public Property Get PosTK(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		If auf_posObject(i).PosTK = "**" Then auf_posObject(i).PosTK = "Storno" End If
+		PosTK = auf_posObject(i).PosTK
+	End Property
+		Public Property Get PosDispoKZ(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosDispoKZ = auf_posObject(i).PosDispoKZ
+	End Property
+	Public Property Get PosMenge(byVal i)
+		If i < LBound(auf_posObject) OR i > UBound(auf_posObject) Then
+			Exit Property
+		End If
+		PosMenge = auf_posObject(i).PosMenge
+	End Property
+	Public Property Get PosCursorPosition(byVal i)
+		If i < LBound(auf_poscursorposition) OR i > UBound(auf_poscursorposition) Then
+			Exit Property
+		End If
+		PosCursorPosition = auf_poscursorposition(i)
+	End Property
+	
+	Public Property Get PosAbteilung()
+		Dim TextString: TextString = ""
+		Dim TextString2, i
+
+		For i=0 To UBound(auf_posObject)
+			If auf_posObject(i).WGR < 300 Then
+				If InStr(1, TextString, " TeBo", 0) = 0 Then TextString = TextString & " TeBo" End If
+			Elseif (auf_posObject(i).WGR >= 300) AND (auf_posObject(i).WGR < 500) Then
+				If InStr(1, TextString, " Baumarkt", 0) = 0 Then TextString = TextString & " Baumarkt"
+			Elseif (auf_posObject(i).WGR >= 500) AND (auf_posObject(i).WGR < 600) Then
+				If InStr(1, TextString, " Heimtex", 0) = 0 Then TextString = TextString & " Heimtex"
+			Elseif (auf_posObject(i).WGR >= 600) AND (auf_posObject(i).WGR < 700) Then
+				If InStr(1, TextString, " Baumarkt", 0) = 0 Then TextString = TextString & " Baumarkt"
+			Elseif (auf_posObject(i).WGR >= 800) AND (auf_posObject(i).WGR < 890) Then
+				If InStr(1, TextString, " M" & ChrW(246) & "bel", 0) = 0 Then TextString = TextString & " M" & ChrW(246) & "bel"
+			Elseif auf_posObject(i).WGR >= 890 Then
+				If InStr(1, TextString, " K" & ChrW(252) & "chen", 0) = 0 Then TextString = TextString & " K" & ChrW(252) & "chen"
+			Else Exit Property
+			End If
+			' Select Case auf_posObject(i).WGR
+				' Case 100 To 300 TextString = TextString & " TeBo "
+				' Case 300 To 500 TextString = TextString & " Baumarkt "
+				' Case 500 To 600 TextString = TextString & " Heimtex "
+				' Case 500 To 600 TextString = TextString & " Baumarkt "
+				' Case 800 To 890 TextString = TextString & " M" & ChrW(246) & "bel "
+				' Case 890 To 909 TextString = TextString & " Küchen "
+				' Case Else Exit Property
+			' End Select
+		Next
+		TextString2 = Replace(Trim(TextString), " ", ", ")			
+		PosAbteilung = TextString2
+	End Property
+	
+	Public Property Get PosLiefertermin(byVal i)
+		PosLiefertermin = auf_posObject(i).Liefertermin
+	End Property
+	
+	Private Function Week2Day(byRef kw)
+		'Gibt den letzten Tag einer Kalenderwoche zurück(Sonntag)!
+		Dim desiredday : desiredday = 7
+		Dim thisyear : thisyear = Year(date)
+		Week2Day = DateAdd("d", ((kw - 1) * 7) + (desiredday - 1), (DateSerial(thisyear,1,4) - WeekDay(DateSerial(thisyear,1,4), 0) + 1))
+	End Function
+	private Function CheckForSaldo()
+		' prüft ob Kaufverträge komplett bezahlt sind
+		Dim textwert : textwert = GetText(15, 73, 8)
+		Dim textsaldo : textsaldo = GetText(16, 73, 8)
+		If GetText(16, 80, 1) = "-" Then
+			auf_saldo = CInt("2") 'Minus Saldo, zuviel bezahlt
+		ElseIf (textsaldo = "0,00") then
+			auf_saldo = CInt("0") 'kein Saldo, alles bezahlt
+		ElseIf (textsaldo = textwert) Then
+			auf_saldo = CInt("3") 'kompletter Saldo offen, bisher nix bezahlt
+		Else
+			auf_saldo = CInt("1") 'anteiliger Saldo offen, nicht voll bezahlt
+		End If
+	End Function
+
+	private Function CheckForStatus()
+		' prüft ob Kaufverträge ausgebucht sind
+		Dim TextLine : TextLine = GetText(21, 22, 21)
+		If (TextLine = "Komplett ausgeliefert") Then
+			auf_status = CInt("0") 'ist ausgeliefert
+		ElseIf (TextLine = "Teilweise ausgeliefer") Then
+			auf_status = CInt("2") 'Teilweise  ausgeliefert
+		ElseIf (TextLine = "Keine aktiven Positio") Then
+			auf_status = CInt("3") 'komplett storniert
+		Else 
+			auf_status = CInt("1") 'nicht ausgeliefert
+		End If
+		auf_verarbeitungshinweis = GetText(14, 22, 30)	
+	End Function
+
+	private Function CheckForOnline()
+		' prüft ob Kaufverträge vom Onlineshop erstellt wurden
+		Dim TextLine : TextLine = GetText(15, 22, 4)
+		If (TextLine = "9998") then
+			auf_online = CBool(TRUE) 'Onlinekauf
+		Else
+			auf_online = CBool(FALSE) 'Kauf im Markt
+		End If
+	End Function
+	private Function CheckForWert()
+		'Gibt den gesamten AuftragsWert zurück
+		Dim TextLine : TextLine = GetText(15, 72, 8)
+		If GetText(15, 80, 1) = "-" Then
+			auf_wert = "-" & trim(replace(Textline, "-", ""))
+		Else
+			auf_wert = TextLine
+		End If
+	End Function
+	private Function CheckForErstellerNr()
+		'Gibt das Datum der Auftragserstellung zurück
+		Dim TextLine : TextLine = GetText(15, 22, 4)
+		auf_erstellernr = TextLine
+	End Function
+	private Function CheckForErsteller()
+		'Gibt namen des Auftrags Erfassers zurück
+		Dim TextLine : TextLine = GetText(15, 32, 16)
+		auf_ersteller = TextLine
+	End Function
+	private Function CheckForErstellDatum()
+		'sucht nach dem Erstellungsdatum
+		Dim TextLine : TextLine = GetText(4, 22, 8)
+		auf_erstelldatum = CDate(TextLine)
+	End Function
+	private Function CheckForZahlungsart()
+		' sucht nach der Zahlungsart
+		Dim TextLine : TextLine = GetText(21, 77, 2)
+		If TextLine <> "" Then
+			auf_zahlungsart = CInt(TextLine)
+		Else
+			auf_zahlungsart = CInt(0)
+		End If
+	End Function
+	private Function CheckForLieferDatum()
+		' sucht nach Lieferdatum
+		Dim TextLine : TextLine = GetText(18, 22, 8)
+		If TextLine = "Diverse" Then 
+			auf_lieferdatum = auf_erstelldatum
+		ElseIf InStr(TextLine, ".00.") = 3 Then
+			Dim L : L = Week2Day(Left(TextLine, 2))
+			auf_lieferdatum = CDate(L)
+		Else
+			auf_lieferdatum = CDate(TextLine)
+		End If
+	End Function
+	private Function CheckForLieferung()
+		'Prüft ob der Auftrag eine Lieferung per Spedition beinhaltet
+		auf_fahrtrichtung = GetText(17, 22, 4)
+		Dim TextLine : TextLine = GetText(18, 32, 1)
+		If TextLine = "S" OR instr(1, auf_zusatzhinweis, "yaka", 0) <> 0 Then 
+			auf_lieferung = CBool(True)
+		Else
+			auf_lieferung = CBool(False)
+		End If
+	End Function
+	private Function CheckForReklamation()
+		'Prüft ob eine Reklamation im Auftrag enthalten ist
+		Dim TextLine : TextLine = GetText(14, 57, 20)
+		If TextLine = "Enthaelt Reklamation" Then
+			auf_reklamation = CBool(True)
+		Else
+			auf_reklamation = CBool(False)
+		End If
+	End Function
+	private Function CheckForZusatzhinweis()
+		'Prüft ob eine Reklamation im Auftrag enthalten ist
+		Dim TextLine : TextLine = GetText(13, 22, 20)
+		auf_zusatzhinweis = LCase(TextLine)
+	End Function
+	
+	private Function CheckForKundendaten()
+		'sucht nach allen Kundendaten
+		Dim TextLine
+		auf_kundennummer = CLng(GetText(4, 70, 8))
+		auf_anrede = CStr(GetText(2, 22, 8))
+		auf_nachname = CStr(GetText(6, 22, 30))
+		auf_vorname = CStr(GetText(7, 22, 30))
+		auf_ort = CStr(GetText(10, 33, 30))
+		auf_plz = GetText(10, 21, 5)
+		TextLine = GetText(11, 22, 14)
+		If TextLine = "" Then
+			auf_telefonnr = "0"
+		Else
+			auf_telefonnr = TextLine
+		End If
+				TextLine = GetText(11, 53, 14)
+		If TextLine = "" Then
+			auf_handynr = "0"
+		Else
+			auf_handynr = TextLine
+		End If
+		TextLine = GetText(9, 22, 32)
+		auf_hausnr = CStr(Right(TextLine, len(TextLine)-InStrRegEx(TextLine, "[0-9]", false)))
+		auf_strasse = CStr(Left(TextLine, InStrRegEx(TextLine, "[0-9]", false)))
+	End Function
+	
+	private Sub CheckForPositionsdaten()
+		Dim i : i = 0
+		Dim c : c = 6
+		Dim vergleich1, vergleich2
+		Dim poscount, poscount2, temp1, temp2, temp3
+		
+		'Wenn Kaufvertrag storniert und es keine Details gibt, abbrechen!
+		If GetText(24, 2 ,2) = "00" Then Exit Sub End If
+		
+		'Schleife zum ermitteln der Positionsanzahl
+		temp1="": temp2="": temp3=""
+		poscount=0: poscount2=0
+		Do
+			If GetText(c, 4, 80) = "" Then
+				Exit Do
+			Else
+				If temp1 = GetText(c, 4, 10) AND temp2 <> GetText(c, 15, 35) AND temp3 = GetText(c, 68, 13) Then
+				'continue
+				Else 
+					poscount = poscount + 1
+				End If
+			End If
+			temp1 = GetText(c, 4, 10): temp2 = GetText(c, 15, 35): temp3 = GetText(c, 68, 13)
+			c=c+1
+		Loop While c<>22
+		c=6
+		temp1="": temp2="": temp3=""
+		
+		call SendKeys("[pf6]") 'aufklappen
+		
+		Do
+			' prüft ob die neue ArtikelNr und deren Wert in der Zeile vorhanden sind
+			If len(GetText(c, 4, 7)) <> 0 AND len(GetText(c, 8, 4)) <> 0 Then 
+				' Prüft ob es sich bei der Position um einen neue Position handelt.
+				If temp1 = GetText(c, 4, 10) AND temp2 <> GetText(c, 15, 35) AND temp3 = GetText(c, 68, 13) Then
+					'continue
+				Else
+					If i > 0 Then 
+						ReDim Preserve auf_posObject(i)
+						ReDim Preserve auf_poscursorposition(i)
+					End If
+					
+					'### Aufnahme der Textstellen in Variablen
+					Set auf_posObject(i) = (New Artikel)(GetText(c, 4, 7) & GetText(c, 12, 2))
+					auf_posObject(i).PosMenge = GetText(c, 4, 8)
+					auf_posObject(i).Lieferant = GetText(c + 2, 4, 4)
+					auf_posObject(i).WGR = GetText(c + 2, 11, 3)
+					auf_posObject(i).PosOrt = GetText(c + 1, 69, 1)
+					auf_posObject(i).PosMarkt = GetText(c + 1, 70, 3)
+					auf_posObject(i).PosStPl = GetText(c + 1, 73, 8)
+					auf_posObject(i).PosWert = GetText(c, 69, 7)
+					auf_posObject(i).PosTK = GetText(c, 79, 2)
+					auf_posObject(i).PosAB = GetText(c, 51, 2)
+					auf_posObject(i).PosGE = GetText(c, 54, 2)
+					auf_posObject(i).PosLI = GetText(c, 57, 2)
+					auf_posObject(i).PosRG = GetText(c, 60, 2)
+					auf_posObject(i).PosWE = GetText(c, 63, 2)
+					auf_posObject(i).PosDispoKZ = GetText(c+1, 53, 1)
+					auf_posObject(i).PosLiefertermin = GetText(c + 2, 73, 8)
+					
+					auf_poscursorposition(i) = c
+					i = i + 1
+				End If
+			End If
+			If GetText(c, 4, 76) = "" Then
+				Exit Do 
+			Else
+				If temp1 = GetText(c, 4, 10) AND temp2 <> GetText(c, 15, 35) AND temp3 = GetText(c, 68, 13) Then
+				'continue
+				Else 
+					poscount2 = poscount2 + 1 'zählt die Anzahl der Positionen beim einlesen
+				End If
+				'speichert die daten zum abgleich am anfang der nächsten Runde
+				temp1 = GetText(c, 4, 10): temp2 = GetText(c, 15, 35): temp3 = GetText(c, 68, 13)
+				c = c + 4
+			End If			
+			
+			'	Abschnitt zum weiterblättern 
+			' Funktioniert bisher nur bedingt wenn die letzte Seite
+			' auch bis zum Ende voll mit Positionen ist
+			''
+			If c >= 22 AND poscount2 > poscount Then 'Nach Bildende weiter scrollen, wenn zeile 22 erreicht ist und noch Positionen übrig bleiben
+				Dim snapshot1, snapshot2, snapshot3, snapshot4
+				snapshot1 = GetText(6, 2, 78): snapshot2 = GetText(10, 2, 78): snapshot3 = GetText(14, 2, 78): snapshot4 = GetText(19, 2, 78)
+				call SendKeys("[roll up]"): call SendKeys("[reset]")' einige ISeries Clients pausieren das Macro direkt beim Error und Reset wird nicht mehr gesendet
+				if snapshot1 <> GetText(6, 2, 78) OR snapshot2 <> GetText(10, 2, 78) OR snapshot3 <> GetText(14, 2, 78) OR snapshot4 <> GetText(19, 2, 78) Then
+					c = 6
+				Else 
+					Exit Do
+				End If
+			End If
+		Loop While i < 25
+	End Sub
+	
+	Sub CreateStornoText(ByVal stornotxt)
+		call SendKeys("[pf10]")
+		'Prüfen ab welcher Zeile geschrieben werden sollten
+		Dim i, r, s, datum
+		i = 7
+		Do While True
+			If GetText(i, 2, 50) = "" Then
+				If GetText(i + 1, 2, 50) = "" Then
+					call SetCursor(i, 2)
+					If day(date) < 10 Then
+						datum = "0" & day(date)
+					Else
+						datum = day(date)
+					End If
+					If month(date) < 10 Then
+						datum = datum & "0" & month(date)
+					Else
+						datum = datum & month(date) 
+					End If
+					datum = datum & Right(year(date),2)
+					'Schreibt in erste gefundene Zeile 
+					call SendKeys(datum): call SendKeys("[space]"): call SendKeys(stornotxt): call SendKeys(" ")
+					If GetText(1, 59, 7) <> "INFO06" Then 
+						call SendKeys(GetText(1, 59, 7))
+					End If
+					'Schreibt in nächste zeile 
+					If InStr(1, LCase(stornotxt), "storno") <> 0 Then
+						call SetCursor(i + 1, 11)
+						For r=0 To UBound(auf_posObject)
+							'Stück oder Meter suche!
+							If IsMeterware(auf_posObject(r).WGR) = True Then
+								s = "m" 
+								If auf_posObject(r).WGR < 300 Then s = s & ChrW(178)
+							Else 
+								s = "x"
+							End If
+							call SendKeys(" - " & auf_posObject(r).PosMenge & s & "[space][space]" & auf_posObject(r).Nr & "/" & auf_posObject(r).Ausfuehrung)
+							If r = 2 Then call SetCursor(i + r, 11)
+							If r = 4 Then Exit Do End If
+						Next
+					End If
+					Exit Do
+				End If
+			End If
+			i = i + 1
+			If i = 21 then
+				call SendKeys("[roll up]")
+				i = 7
+			End If
+		Loop
+		call SendKeys("[pf3]")
+	End Sub
+	
+	Sub AutoStorno(byRef pw19, byRef pw20, byVal storno)
+		Dim i
+		If (CheckForUserpower>=3 AND auf_status=1 OR CheckForUserpower>=3 AND auf_status=3) Then
+			If storno=true Then
+				If auf_posObject(0).PosGE = "WI" Then
+					call SendKeys("[pf3][pf3]05[enter]02[enter]")
+					call SetCursor(4, 21): call SendKeys(auf_nummer): call SetCursor(5, 21)
+					call SendKeys(auf_posObject(0).PosOrt & auf_posObject(0).PosMarkt & auf_posObject(0).PosStPl)
+					call SendKeys("[enter][pf1]"): call SendKeys("[pf3][pf3]")
+				End if
+			End If
+			call SendKeys("[pf3][pf3]")
+			call SendKeys("51[enter]")
+			call SendKeys("07[enter]")
+			call SendKeys("01[enter]")
+			call SetCursor(7, 23): call SendKeys(auf_nummer): call SendKeys("[enter]")
+			'Prüfe und korrigiere alle Daten 
+			If GetText(17, 77, 2) = "" Then
+				call SetCursor(17, 77)
+				call SendKeys("AB")
+			End If
+			If GetText(18, 22, 1) = "" Then
+				call SetCursor(18, 22)
+				call SendKeys("M")
+			End If
+			If GetText(19, 60, 2) = "" Then
+				call SetCursor(19, 60)
+				call SendKeys("11")
+			End If
+			If GetText(16, 22, 4) = "" Then
+				call SetCursor(16, 22)
+				call SendKeys("9999")
+			End If
+			If GetText(5, 61, 7) = "" Then
+				call SetCursor(5, 61)
+				call SendKeys("9000006")
+			End If
+			If GetText(12, 61, 20) = "" Then
+				call SetCursor(12, 61)
+				call SendKeys("0")
+			End If
+			If GetText(17, 22, 10) = "" Then
+				Dim datum
+				If len(Day(NOW()))= 1 Then
+					datum = "0" & Day(NOW()) & "."
+				Else
+					datum = Day(NOW()) & "."
+				End If
+				If len(Month(NOW()))= 1 Then
+					datum = datum & "0" & Month(NOW()) & "." & Right(Year(NOW()), 2)
+				Else
+					datum = datum & Month(NOW()) & "." & Right(Year(NOW()), 2)
+				End If
+				call SetCursor(17, 22)
+				call SendKeys(datum)
+			End If
+			'weiter gehts.
+			call SendKeys("[enter][enter]")
+			If CheckForError() = TRUE Then 
+				'MsgBox("Fehlermeldung: " & GetText(24, 8, 30))
+				call reset()
+				call SendKeys("[pf1]")
+			End If
+			If storno = true Then
+				call SendKeys("[pf13][pf6]")
+				For i=0 to UBound(auf_posObject)
+					call SetCursor(auf_poscursorposition(i), 2): call SendKeys("S")
+					If CheckForError = true Then call Reset() End If
+				Next
+				call SendKeys("[enter]")
+				If CheckForError = true Then call Reset() End If
+				For i=0 to UBound(auf_posObject)
+					If auf_posObject(i).PosDispoKZ = "X" Then
+						If pw19 = false Then
+							pw19 = InputBox("S19 - Stornopasswort: "," Eingabe: ","0")
+						End If
+						call SetCursor(6, 56): call SendKeys("S19"): call SendKeys(pw19): SendKeys("[enter]")
+					Else
+						If pw20 = false Then
+							pw20 = InputBox("S20 - Stornopasswort: "," Eingabe: ","0")
+						End If
+						call SetCursor(6, 56): call SendKeys("S20"): call SendKeys(pw20): SendKeys("[enter]")
+					End If
+				Next
+			End If
+			call SendKeys("[pf3][field+][field+][field+]")
+			If GetText(9, 36, 2) = "" Then
+				call SetCursor(9, 36)
+				call SendKeys("01")
+			End If 
+			Dim strtext: strtext = False
+			If GetText(18, 36, 1) <> "" Then
+				strtext = GetText(18, 36, 1)
+				call SetCursor(18, 36)
+				call SendKeys("[field+]")
+			End If
+			
+			'ermitteln, beseitigen des VerarbeitungsKZ & erstellen des F10 Textes
+			Dim stornotext
+			If storno=true AND TypeName(strtext)="String" Then
+				stornotext = "Ware im Haus verblieben, daher storno und Kennzeichen:" & strtext & " entfernt."
+			ElseIf storno=true AND strtext=false Then
+				stornotext = "Ware im Haus verblieben, Storno!"
+			ElseIf TypeName(strtext)="String" Then
+				stornotext = "Abgest" & ChrW(252) & "rzter KV, Kennzeichen:" & strtext & " entfernt!!"
+			End If
+			call CreateStornoText(stornotext)
+			call SendKeys("[enter]")
+		End If
+	End Sub
+
+	Sub Ausbuchen()
+		Dim tkString, i, g
+		g=false
+		For i=0 to UBound(auf_posObject)
+			If InStr(1, tkString, auf_posObject(i).PosTK) = 0 AND auf_posObject(i).PosTK <> "**" Then tkString = tkString & auf_posObject(i).PosTK
+			If auf_posObject(i).PosGE = "WI" Then g = True 
+		Next
+		If g=True Then call IwvZurueckmelden()
+		call SendKeys("[pf3][pf3]")
+		If CheckForUserpower>2 Then
+			call SendKeys("01[enter]")
+		End If
+		call SendKeys("15[enter]")
+		Do 
+			call SetCursor(4, 22): SendKeys(auf_nummer)
+			call SetCursor(4, 53): SendKeys(Left(tkString, 2))
+			SendKeys("[enter]")
+			call SendKeys("[pf1]")
+			Dim strcut: strcut = CInt(len(tkString)-2)
+			MsgBox(tkString & " : " & strcut)
+			tkString = Right(tkString, strcut)	
+		Loop While tkString <> ""
+		call SendKeys("[pf3][pf3]")
+	End Sub
+	
+	Sub IwvZurueckmelden()
+		If CheckForUserpower<=2 Then
+			SendKeys("[pf3][pf3]21[enter]")
+		ElseIf CheckForUserpower>3 Then
+			call SendKeys("[pf3][pf3]5[enter]2[enter]")
+			call SetCursor(4, 21): call SendKeys(auf_nummer): call SetCursor(5, 21): call SendKeys("N006[enter][pf1]")
+			call SetCursor(4, 21): call SendKeys(auf_nummer): call SetCursor(5, 21): call SendKeys("L006[enter][pf1]")
+		End If
+		call SendKeys("[pf3][pf3]")
+	End Sub
+End Class

@@ -1,0 +1,191 @@
+[PCOMM SCRIPT HEADER]
+LANGUAGE=VBSCRIPT
+DESCRIPTION=
+[PCOMM SCRIPT SOURCE]
+OPTION EXPLICIT
+'On Error Resume Next
+autECLSession.SetConnectionByName(ThisSessionName)
+
+Dim ExecuteString
+Dim file : file = "resource\functions.script"
+ExecuteString = LoadFile(file)
+file = "resource\classes.script"
+ExecuteString = ExecuteString & vbCrLf & LoadFile(file)
+ExecuteGlobal ExecuteString
+
+Function LoadFile(byVal file)
+	Dim objFSO : set objFSO = CreateObject("Scripting.FileSystemObject")
+	Dim objVBS : Set objVBS = objFSO.OpenTextFile(file, 1, False)
+	Dim objUpdateString : objUpdateString = objVBS.ReadAll
+	objVBS.Close
+	Set objVBS = nothing
+	set objFSO = nothing
+	
+	LoadFile = objUpdateString
+End Function
+
+'###############################################################
+'###############################################################
+
+Dim wgr, wgr1, wgr2, uwgr, bezeichnung, artNummer, resultfile, markt, wenigerals
+Dim objArtikel(), objSheet
+Dim objSM, objDesk, UnixPath
+Dim objDoc, objStyleFamilies, objStyle, objPageStyles, objCell, loadDocument(0)
+ReDim Preserve objArtikel(0)
+
+wgr = InputBox("Hauptwarengruppe: ", "Auswahl: ", "500")
+If InStrRegEx(wgr, "^[0-9]*$", False) <> False Then
+	wgr = CInt(wgr)
+Else
+	wgr1 = Split(wgr, "-")(0)
+	wgr2 = Split(wgr, "-")(1)
+End If
+wenigerals = CInt(InputBox("...weniger als ...: ", "Auswahl: ", "2"))
+uwgr = "****"
+bezeichnung = ""
+markt = "006"
+resultfile = "c:\download\bestandsliste_" & wgr & ".ods"
+call ConvertToURL(resultfile)
+call WinKillProcess("soffice.bin")
+'If InStr(resultfile, "file:///") = 0 Then resultfile = "file:///" & Replace(resultfile, "\", "/")
+'call WinDeleteFile(resultfile)
+
+'erstelle Active-X COM-Object für OpenOffice
+Set objSM = CreateObject("com.sun.star.ServiceManager")
+Set objDesk = objSM.createInstance("com.sun.star.frame.Desktop")
+Dim col: col = 0
+
+'Initialisiert die Calc-File im Hintergrund
+Set loadDocument(0) = objSM.Bridge_GetStruct("com.sun.star.beans.PropertyValue")
+loadDocument(0).Name = "Hidden"
+loadDocument(0).Value = TRUE
+set objDoc = objDesk.loadComponentFromURL("private:factory/scalc", "_blank", 0, loadDocument)
+
+'Artikelliste aus AS400 abrufen
+If len(wgr) = 1 Then 
+	call SendKeys("[pf3][pf3]"): call SendKeys("[pf21]BAU[enter]")
+	call SetCursor(10, 20):call SendKeys(wgr)
+	call SetCursor(14, 20):call SendKeys(bezeichnung)
+	call SendKeys("[pf5][tab]"): call SetCursor(10, 58): call SendKeys("x"): call SetCursor(18, 58): call SendKeys("N006L006[enter]")
+	call SetCursor(5, 9): call SendKeys("00[enter]")
+ElseIf len(wgr) = 7 Then
+	call SendKeys("[pf3][pf3]"): call SendKeys("[pf21]BAU[enter]")
+	call SetCursor(7, 49): call SendKeys(wgr1): call SetCursor(7, 57): call SendKeys(wgr2)
+	call SetCursor(14, 20): call SendKeys(bezeichnung)
+	call SendKeys("[pf5][tab]"): call SetCursor(10, 58): call SendKeys("x"): call SetCursor(18, 58): call SendKeys("N006L006[enter]")
+	call SetCursor(5, 9): call SendKeys("00[enter]")
+Else
+	call SendKeys("[pf3][pf3]"): call SendKeys("[pf21]BAU[enter]")
+	call SetCursor(7, 20):call SendKeys(wgr & uwgr)
+	call SetCursor(14, 20):call SendKeys(bezeichnung)
+	call SendKeys("[pf5][tab]"): call SetCursor(10, 58): call SendKeys("x"): call SetCursor(18, 58): call SendKeys("N006L006[enter]")
+	call SetCursor(5, 9): call SendKeys("00[enter]")
+End If
+
+Dim i, r: i = 7: r = 0: dim ausfuehrung
+Do	 
+	If GetText(i, 4, 7) <> "" AND i < 22 AND GetText(i, 4, 7) <> "0" Then
+		If InStrRegEx(GetText(i, 69, 5), "^[0-9]{1,5}$", false) <> false Then 'sichert den Int Cast ab 
+			If CInt(GetText(i, 69, 5)) < wenigerals Then
+				ausfuehrung = String(2-len(GetText(i, 12, 2)), "0") & GetText(i, 12, 2)
+				Set objArtikel(r) = (New Artikel)(GetText(i, 4, 7) & "/" & ausfuehrung) 'erstellt Objekt
+				If GetText(i, 62, 5) = "" OR InStrRegEx(GetText(i, 62, 5), "[^/d]*$", false) = false Then objArtikel(r).Lager = 0 Else objArtikel(r).Lager = GetText(i, 62, 5) End If
+				If GetText(i, 69, 5) = "" OR InStrRegEx(GetText(i, 69, 5), "[^/d]*$", false) = false Then objArtikel(r).Ausstellung = 0 Else objArtikel(r).Ausstellung = GetText(i, 69, 5) End If
+				If GetText(i, 77, 5) = "" OR InStrRegEx(GetText(i, 77, 5), "[^/d]*$", false) = false Then objArtikel(r).IWV = 0 Else objArtikel(r).IWV = GetText(i, 77, 5) End If
+				r=r+1: ReDim Preserve objArtikel(r)
+			End If
+		End If
+	Else 
+		If i = 22 Then 'blättert am Bildende weiter wenn nötig
+			Dim c: c = GetText(7, 6, 50)
+			SendKeys("[roll up]")
+			If c = GetText(7, 6, 50) Then 
+				call Reset(): Exit Do
+			End If
+			i = 7
+		Else
+			Exit Do
+		End If
+	End If
+	i=i+1
+Loop While true
+
+Dim tempwgr, wgrcounter, ci, ii, objCellRange
+tempwgr=0: wgrcounter=0: ii=1
+'Tabellen-Werte einstellen
+set objStyleFamilies = objDoc.StyleFamilies
+Set objPageStyles = objStyleFamilies.getByName("PageStyles")
+Set objStyle = objPageStyles.getByIndex(wgrcounter)
+objStyle.Height = 21000
+objStyle.Width = 29700
+objStyle.IsLandscape = True
+objStyle.TopMargin = 2000
+objStyle.RightMargin = 1000
+objStyle.BottomMargin = 1000
+objStyle.LeftMargin = 1000
+ObjStyle.FooterIsOn = False
+ObjStyle.HeaderIsOn = True
+
+For i=0 To (UBound(objArtikel)-1)
+	'fülle Objekt mit Daten
+	call objArtikel(i).Search_Data(0)
+	'wgr prüfung
+	If objArtikel(i).WGR <> tempwgr AND objArtikel(i).WGR <> 0 Then
+		'Tabellen aufbau
+		wgrcounter=wgrcounter+1
+		If objDoc.Sheets.hasByName("Tabelle" & wgrcounter) = False Then
+			call objDoc.Sheets.insertNewByName("Tabelle" & wgrcounter, 2)
+		End If
+		set objSheet = objDoc.getSheets().getByName("Tabelle" & wgrcounter)
+		objDoc.sheets.getByName("Tabelle" & wgrcounter).Name = objArtikel(i).WGR
+		
+		call WriteToCell(0, 0, "<b>Artikel-Nr.", "ods", objSheet): objSheet.getColumns.getByIndex(0).Width = 2400
+		call WriteToCell(1, 0, "<b>Bezeichnung", "ods", objSheet): objSheet.getColumns.getByIndex(1).Width = 6800
+		call WriteToCell(2, 0, "<b>Bezeichnung 2", "ods", objSheet): objSheet.getColumns.getByIndex(2).Width = 6500
+		call WriteToCell(3, 0, "<b>Auslauf", "ods", objSheet): objSheet.getColumns.getByIndex(3).Width = 1550
+		call WriteToCell(4, 0, "<b>IWV", "ods", objSheet): objSheet.getColumns.getByIndex(4).Width = 1000
+		call WriteToCell(5, 0, "<b>Lager", "ods", objSheet): objSheet.getColumns.getByIndex(5).Width = 1200
+		call WriteToCell(6, 0, "<b>Ausst.", "ods", objSheet): objSheet.getColumns.getByIndex(6).Width = 1200
+		call WriteToCell(7, 0, "<b>IST", "ods", objSheet): objSheet.getColumns.getByIndex(7).Width = 7000
+		For ci=0 To 7
+			call ChangeCellColor(ci, 0, "lgrey", "ods", objSheet)
+			objSheet.getCellByPosition(ci, 0).HoriJustify = 2
+		Next
+		'objCellRange = objSheet.getCellRangeByPosition(0,0,7,0)
+
+		tempwgr=objArtikel(i).WGR
+		ii=1
+	End If
+	'eintragen der Positionen in die Tabelle
+	call WriteToCell(0, ii, objArtikel(i).Nr & " / " & objArtikel(i).Ausfuehrung, "ods", objSheet)
+	call WriteToCell(1, ii, objArtikel(i).Name, "ods", objSheet)
+	call WriteToCell(2, ii, objArtikel(i).Name2, "ods", objSheet)
+	If objArtikel(i).Auslauf = True Then
+		call WriteToCell(3, ii, "<b> X ", "ods", objSheet) 
+		objSheet.getCellByPosition(3, ii).HoriJustify = 2
+	End If
+	call WriteToCell(4, ii, objArtikel(i).IWV, "ods", objSheet): objSheet.getCellByPosition(4, ii).HoriJustify = 2
+	call WriteToCell(5, ii, objArtikel(i).Lager, "ods", objSheet): objSheet.getCellByPosition(5, ii).HoriJustify = 2
+	call WriteToCell(6, ii, objArtikel(i).Ausstellung, "ods", objSheet): objSheet.getCellByPosition(6, ii).HoriJustify = 2
+	ii=ii+1
+Next
+
+loadDocument(0).Name = "Overwrite"
+loadDocument(0).Value = TRUE
+loadDocument(0).Name = "Hidden"
+loadDocument(0).Value = False
+loadDocument(0).Name = "MakroExecutionMode"
+loadDocument(0).Value = 3
+call objDoc.storeAsURL(resultfile, loadDocument)
+MsgBox("Fertig! ")
+If FileUsed3Partie(resultfile) Then 
+	call objDoc.Close(True)
+	call WinKillProcess("soffice.bin")
+Else 
+	set objDoc = objDesk.loadComponentFromURL(resultfile, "_blank", 0, loadDocument)
+	set objDoc = nothing
+	set objSheet = nothing
+	Set objSM = nothing
+	Set objDesk = nothing
+	set objSheet = nothing
+End If

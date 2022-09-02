@@ -1,0 +1,439 @@
+'********************************************
+'***			FUNCTIONS				  ***	
+'********************************************
+
+Function SearchFile(byVal directory)
+	'erstellt eine Auflistung aller Dateien mit der Endung .txt, .ods, .xls auf dem
+	'als Parameter übergebenen Ordner und gibt die im Dialog ausgewählte Datei
+	'mit Pfad zurück.
+	'Wurde keine passende Datei im Ordner gefunden wird False zurück gegeben.
+	'Wünscht der User in einem anderen Ordner zu suchen, wird der vom User
+	'gewählte Ordner als String zurück gegeben.
+	
+	If InStrRegEx(directory, "^[c-z|C-Z]{1}[:]{1}", false) <> False Then 
+		Dim files, sFolder, array(), filelist, election, index, cutter, msgtxt
+		
+		'einlesen der Dateien im Ordner
+		Dim objFSO : set objFSO = CreateObject("Scripting.FileSystemObject")
+		Dim folder: Set folder = objFso.GetFolder(directory)
+		Set files = folder.Files
+
+		'Aufbau der highend Unity3D GUI-Engine zur Datei auswahl. Dateien Filtern nach .txt, .ods & .xls Erweiterungen.
+		Dim i: i=0
+		msgtxt = "W" & ChrW(228) & "hle die gew" & ChrW(252) & "nschte Datei aus dem Ordner: "
+		cutter = "--------------------------------------------------------------------------"
+		filelist = "[0] -->  " & ChrW(171) & ChrW(171) & " anderen Ordner w" & ChrW(228) & "hlen." & vbCrLf
+		ReDim Preserve array(0)
+		For each index In files
+			If split(index.Name, ".")(1) = "txt" OR split(index.Name, ".")(1) = "ods" OR split(index.Name, ".")(1) = "xls" Then
+				If InStr(index.Name, "_result") = False Then
+					array(i) = index.Name
+					filelist = filelist & "    [" & i+1 & "] -->  " & index.Name & vbCrLf
+					i=i+1
+				End If
+			End If
+			ReDim Preserve array(i)
+		Next
+		
+		If i=0 Then
+			SearchFile = false	
+		Else
+			'Hauptauswahl
+			election = CInt(InputBox(msgtxt & directory & vbCrLf & vbCrLf & cutter & vbCrLf & filelist & vbCrLf & cutter & vbCrLf, "Auswahl: ", "1"))
+			If election = 0 Then 
+				'Alternative
+				SearchFile = CStr(InputBox("in welchem Dateipfad soll alternativ gesucht werden: "," Eingabe: ","C:\"))
+			Else
+				SearchFile = directory & "\" & array(election-1)
+			End If
+		End If
+	Else
+		SearchFile = false
+	End If
+End Function
+
+Public Function InStrRegEx(ByVal searchIn, ByVal searchFor, ByVal opt)
+	'opt=false gibt den gefundenen Ausdruck zurück, opt=true die stelle wo er gefunden wurde
+	Dim regEx, found
+	If Len(searchIn) > 0 And Len(searchFor) > 0 Then
+		Set regEx = New RegExp
+		regEx.Pattern = searchFor
+		regEx.Global = True
+		regEx.IgnoreCase = True
+		Set found = regEx.Execute(searchIn)
+		If found.Count <> 0 AND opt = false Then
+			InStrRegEx = found.Item(0)
+		ElseIf found.Count <> 0 AND opt = True Then
+			InStrRegEx = found(0).FirstIndex - 1
+		ElseIf  found.Count = 0 Then 
+			InStrRegEx = false
+		Else
+			InStrRegEx = "Fehler in RegEx suche!"
+		End If
+	End If
+End Function
+
+Public Function SplitRegEx(ByVal value, ByVal pattern)
+	' Split function erweitert um die möglichkeit per RegEx zu splitten
+	Dim objRegEx, replacesstr: replacesstr = "@#&"
+	Set objRegEx = New RegExp
+	objRegEx.Pattern = pattern
+	objRegEx.Global = True
+	
+	SplitRegEx = Split(objRegEx.Replace(value, replacesstr), "@#&")
+End Function
+
+Public Function WriteTextFile(file, textstring)
+	Dim objWrite, objFSO2
+	set objFSO2 = CreateObject("Scripting.FileSystemObject")
+	Set objWrite = objFSO2.OpenTextFile(file, 2, False)
+	objWrite.Write textstring & vbCrLf
+	objWrite.Close
+End Function
+
+Function IsMeterware(ByVal wgr)
+	If wgr = 520 OR wgr = 521 OR wgr = 522 OR wgr = 100 OR wgr = 105 OR wgr = 106 OR wgr = 110 OR wgr = 130  Then 
+		IsMeterware = True 
+	Else 
+		IsMeterware = False
+	End If
+End Function
+Function IsSortiert(byVal objArtikel)
+	Dim RegExString(2)
+	RegExString(0) = "sortiert"
+	RegExString(1) = "sort."
+	RegExString(2) = "sopo"
+	For Each test In RegExString
+		If InStr(LCase(objArtikel.Name), LCase(test)) <> 0  Then IsSortiert = True
+		If InStr(LCase(objArtikel.Name2), LCase(test)) <> 0  Then IsSortiert = True
+		If InStr(LCase(objArtikel.Name3), LCase(test)) <> 0  Then IsSortiert = True
+	Next
+End Function
+
+Function AESEncode(sText)
+	Dim oXML, oNode
+	Set oXML = CreateObject("Msxml2.DOMDocument.3.0")
+	Set oNode = oXML.CreateElement("base64")
+	oNode.dataType = "bin.base64"
+	oNode.nodeTypedValue = Stream_StrToBin(sText)
+	Encode = "AES256|" & Replace(oNode.text, "=", "")
+	Set oNode = Nothing
+	Set oXML = Nothing
+End Function
+Private Function Stream_StrToBin(Text)
+	Const adTypeText = 2
+	Const adTypeBinary = 1
+	Dim BinaryStream
+	Set BinaryStream = CreateObject("ADODB.Stream")
+	BinaryStream.Type = adTypeText
+	BinaryStream.CharSet = "us-ascii"
+	BinaryStream.Open
+	BinaryStream.WriteText Text
+	BinaryStream.Position = 0
+	BinaryStream.Type = adTypeBinary
+	BinaryStream.Position = 0
+	Stream_StrToBin = BinaryStream.Read
+	Set BinaryStream = Nothing
+End Function
+
+Function AESDecode(ByVal vCode)
+	Dim oXML, oNode
+	Set oXML = CreateObject("Msxml2.DOMDocument.3.0")
+	Set oNode = oXML.CreateElement("base64")
+	oNode.dataType = "bin.base64"
+	vcode = Replace(vcode, "AES256|", "") & "="
+	oNode.text = vCode
+	AESDecode = Stream_BinToStr(oNode.nodeTypedValue)
+	Set oNode = Nothing
+	Set oXML = Nothing
+End Function
+Private Function Stream_BinToStr(Binary)
+	Const adTypeText = 2
+	Const adTypeBinary = 1
+	Dim BinaryStream 
+	Set BinaryStream = CreateObject("ADODB.Stream")
+	BinaryStream.Type = adTypeBinary
+	BinaryStream.Open
+	BinaryStream.Write Binary
+	BinaryStream.Position = 0
+	BinaryStream.Type = adTypeText
+	BinaryStream.CharSet = "us-ascii"
+	Stream_BinToStr = BinaryStream.ReadText
+	Set BinaryStream = Nothing
+End Function
+Function TodayDate()
+	Dim stringdate, realdate
+	If Day(now) <= 9 Then
+		realdate = "0"
+	End If
+	realdate = Day(now) & "."
+	If Month(now) <= 9 Then
+		realdate = realdate & "0"
+	End If
+	TodayDate = realdate & Month(now) & "." & Year(now)
+End Function
+Function ConvertToURL(byRef path)
+	'passt Windows Pfade für das Unix-Pfadsystem von OpenOffice an 
+	if (lcase(left(trim(path), 5)) = "file:") OR (lcase(left(trim(path), 5)) = "http:") then
+		'ist ein file: oder http: vorran gestellt, wird der Pfad nicht mehr angepasst
+	Else
+		if NOT (right(path, 1) = "\") then path = path & "\"
+		If InStr(path, "file:///") = 0 Then
+			path = "file:///" & Replace(path, "\", "/")
+		End If
+	End If
+End Function
+Function FileUsed3Partie(byVal sfile)
+	dim a, pathname, filename, sLockURL
+	dim objFSO
+	
+	FileUsed3Partie = false 'Vorgabe
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	a = UBound(split(sfile, "/"))
+	filename = Split(sfile, "/")(a)
+	pathname = Split(sfile, filename)(0)
+	sLockURL = pathname & "/.~lock." & filename & "#"
+	if objFSO.FileExists(sLockURL) then FileUsed3Partie = true
+End Function
+Function Week2Day(byRef kw)
+	'Gibt den letzten Tag einer Kalenderwoche zurück(Sonntag)!
+	Dim desiredday : desiredday = 7
+	Dim thisyear : thisyear = Year(date)
+	Week2Day = DateAdd("d", ((kw - 1) * 7) + (desiredday - 1), (DateSerial(thisyear,1,4) - WeekDay(DateSerial(thisyear,1,4), 0) + 1))
+End Function
+
+
+'				Excel / Calc 
+'## ''''''''''''''''''''''''''''''''''''''''''
+'##	Folgende Registry-Key´s müssen vorhanden sein um OpenOffice(LibreOffice) zu nutzen:
+'##
+'##	[HKEY_CLASSES_ROOT\CLSID\{82154420-0FBF-11d4-8313-005004526AB4}] @="\"StarOffice Service Manager (Ver 1.0)\""
+'##	[HKEY_CLASSES_ROOT\CLSID\{82154420-0FBF-11d4-8313-005004526AB4}\LocalServer32] @="C:\\Program Files\\OpenOffice 4\\program\\soffice.exe"
+'##	[HKEY_CLASSES_ROOT\CLSID\{82154420-0FBF-11d4-8313-005004526AB4}\NotInsertable]
+'##	[HKEY_CLASSES_ROOT\CLSID\{82154420-0FBF-11d4-8313-005004526AB4}\ProgIDcom.sun.star.ServiceManager.1] @="com.sun.star.ServiceManager.1"
+'##	[HKEY_CLASSES_ROOT\CLSID\{82154420-0FBF-11d4-8313-005004526AB4}\Programmable]
+'##	[HKEY_CLASSES_ROOT\CLSID\{82154420-0FBF-11d4-8313-005004526AB4}\VersionIndependentProgID] @="com.sun.star.ServiceManager"
+'##	[HKEY_CLASSES_ROOT\com.sun.star.ServiceManager] @="StarOffice Service Manager"
+'##	[HKEY_CLASSES_ROOT\com.sun.star.ServiceManager\CLSID] @="{82154420-0FBF-11d4-8313-005004526AB4}"
+'##	[HKEY_CLASSES_ROOT\com.sun.star.ServiceManager\CurVer] @="com.sun.star.ServiceManager.1"
+'##	[HKEY_CLASSES_ROOT\com.sun.star.ServiceManager.1] @="StarOffice Service Manager (Ver 1.0)"
+'##	[HKEY_CLASSES_ROOT\com.sun.star.ServiceManager.1\CLSID] @="{82154420-0FBF-11d4-8313-005004526AB4}"
+'## -------------------------------------------------------------------------------------------------------------------------------
+
+Function WriteToCell(ByVal wrow, ByVal wcol, ByVal value, ByVal FileExt, ByRef objSheet)
+	'Schreibt in eine Calc Tabelle in die übergebene Zelle
+	' Parameter: Row, Column ( 0, 0 entspricht Zelle A1)
+	'			 FileExt (Dateierweiterung OOffice oder MS Office)
+	'			 objSheet (enthält das Tabellen Object)	
+	
+	If FileExt = "ods" OR FileExt = ".ods" Then 
+		If InStrRegEx(value, "^[<]{1}[b|B]{1}[>]{1}", False) <> False Then
+			objSheet.getCellByPosition(wrow, wcol).String = Split(value, ">")(1)
+			call objSheet.getCellByPosition(wrow, wcol).setPropertyValue("CharWeight", 150.000000)'Fett
+		ElseIf InStrRegEx(value, "^[<]{1}[u|U]{1}[>]{1}", False) <> False Then
+			objSheet.getCellByPosition(wrow, wcol).String = Split(value, ">")(1)
+			call objSheet.getCellByPosition(wrow, wcol).setPropertyValue("CharUnderline", 1)
+		Else
+			'call objSheet.getCellByPosition(wrow, wcol).setPropertyValue("CharColor", 205)
+			objSheet.getCellByPosition(wrow, wcol).String = value
+		End If
+	ElseIf FileExt = "xls" OR FileExt = ".xls" Then 
+		' ... Excel ...
+		objSheet.Cells(wrow + 1, wcol + 1).value = value
+	Else
+		MsgBox("Fehler beim schreiben in Zelle!")
+	End If
+End Function
+
+Public Function GetCellData(ByVal rrow, ByVal rcol, ByVal FileExt, ByRef objSheet)
+	' Gibt den Wert der übergebenen Zelle aus Calc zurück
+	' Parameter: Row, Column ( 0, 0 entspricht Zelle A1)
+	'			 FileExt (Dateierweiterung OOffice oder MS Office)
+	'			 objSheet (enthält das Tabellen Object)
+	
+	If FileExt = "ods" OR FileExt = ".ods" Then
+		Dim objCell
+		set objCell = objSheet.getCellByPosition(rrow, rcol) 
+		If objCell.getType() = 1 Then
+			GetCellData = objCell.getValue()
+		ELseIf objCell.getType() = 2 Then
+			GetCellData = objCell.getString()
+		Else
+			GetCellData = CInt(0)
+		End If
+		set objCell = nothing
+	ElseIf FileExt = "xls" OR FileExt = ".xls" Then  
+		' ... Excel ...
+		GetCellData = objSheet.Cells(rrow + 1, rcol + 1).value
+	Else
+		MsgBox("Fehler beim lesen aus Zelle!")
+	End If
+End Function
+
+Function ChangeCellColor(ByVal wrow, ByVal wcol, ByVal Color, ByVal FileExt, ByRef objSheet)
+	' Setzt den passenden RGB-Farbcode in die übergebene Zelle in Calc / Excel
+	'			 FileExt (Dateierweiterung OOffice oder MS Office)
+	'			 objSheet (enthält das Tabellen Object)
+	
+	Dim rgbColor1, rgbColor2, rgbColor3
+	
+	If Color = "red" Then
+		rgbColor1 = 	255
+		rgbColor2 = 	0
+		rgbColor3 = 	0
+	ElseIf Color = "green" Then
+		rgbColor1 = 	0
+		rgbColor2 = 	200
+		rgbColor3 = 	0
+	ElseIf Color = "yellow" Then
+		rgbColor1 = 	255
+		rgbColor2 = 	255
+		rgbColor3 = 	0
+	ElseIf Color = "lgrey" Then
+		rgbColor1 = 	220
+		rgbColor2 = 	220
+		rgbColor3 = 	220
+	Else
+		rgbColor1 = 	255
+		rgbColor2 = 	255
+		rgbColor3 = 	255		
+	End If
+	
+	If FileExt = "ods" OR FileExt = ".ods" Then	
+		Dim objCell
+		set objCell = objSheet.getCellByPosition( wrow, wcol ) 
+		objCell.CellBackColor = RGB(rgbColor3, rgbColor2, rgbColor1)
+		set objCell = nothing
+	ElseIf FileExt = "xls" OR FileExt = ".xls" Then  
+		' ... Excel ...
+		objSheet.Cells(wrow + 1, wcol + 1).interior.color = RGB(rgbColor3, rgbColor2, rgbColor1)
+	Else
+		MsgBox("Fehler beim ändern der Hintergrundfarbe der Zelle!")
+	End If
+End Function
+
+' 				AS400 
+'''''''''''''''''''''''''''''''''''''''''''''
+Function RunMenue(ByVal menue, ByVal nr)
+	' Startet das übergebene Menü per ExpertenMenue
+	autECLSession.autECLOIA.WaitForAppAvailable
+	autECLSession.autECLOIA.WaitForInputReady
+	call SendKeys("[pf21]"): call SendKeys(menue)
+	If menue = "AAU" Then 
+		call SetCursor(24, 65): call SendKeys(nr)
+		call SendKeys("[enter]")
+	ElseIf menue = "BAU" Then
+		call SetCursor(23, 65): call SendKeys(nr)
+		call SendKeys("[enter]")
+		If GetText(5, 11, 35) = "........" Then 
+			call SetCursor(4, 20): call SendKeys(nr & "[enter]")
+		End If		
+	ElseIf menue = "LIV" Then
+		call SetCursor(23, 55): call SendKeys(nr)
+		call SendKeys("[enter]")
+	ElseIf menue = "ARV" Then
+		If InStr(1, nr, "/", 0) > 0 Then
+			call SetCursor(23, 65): call SendKeys(Split(nr, "/")(0))
+			call SetCursor(23, 73): call SendKeys(Split(nr, "/")(1))
+		Else
+			call SetCursor(23, 65): call SendKeys(nr)
+		End If
+		call SendKeys("[enter]")
+	End If
+End Function
+Function IsMeterware(ByVal wgr)
+	If wgr = 520 OR wgr = 521 OR wgr = 522 OR wgr = 100 OR wgr = 105 OR wgr = 106 OR wgr = 110 OR wgr = 130  Then 
+		IsMeterware = True 
+	Else 
+		IsMeterware = False
+	End If
+End Function
+Function CheckForUserpower()
+	'Prüft welche berechtigung der angemeldete User hat
+	Dim textlineuser, textlinepower
+	call SendKeys("[pf3][pf3][pf3]")
+	textlineuser = GetText(1, 49, 7)
+	textlinepower = GetText(2, 28, 25)
+	
+	If InStr(textlineuser, "INFO") Then
+		CheckForUserpower = 0
+	ElseIf InStr(textlinepower, "Verkaeufer") Then
+		CheckForUserpower = 1
+	ElseIf InStr(textlinepower, "Auszu") Then
+		CheckForUserpower = 2
+	ElseIf InStr(textlinepower, "Abteilungsleiter Verkauf") Then
+		CheckForUserpower = 3
+	ElseIf InStr(textlinepower, "Abteilungsleiter") Then
+		CheckForUserpower = 4
+	ElseIf InStr(textlinepower, "Marktleit") Then
+		CheckForUserpower = 6
+	Else
+		CheckForUserpower = 5
+	End If
+End Function
+
+Function GetText(ByVal row, ByVal column, ByVal length)
+	' Gibt den an der übergebenen Position angezeigten Text aus.
+	
+	autECLSession.autECLOIA.WaitForAppAvailable
+	autECLSession.autECLOIA.WaitForInputReady
+	GetText = Trim(autECLSession.autECLPS.GetText(row, column, length))
+End Function
+
+Function CheckForError()
+	' sucht nach roten Error im unteren Bildschirmbereich
+	
+	Dim ErrorMessage: ErrorMessage = GetText(24, 2, 78)
+	If (ErrorMessage <> "") then
+		CheckForError = CBool(TRUE) 'error
+	Else
+		CheckForError = CBool(FALSE) 'kein error
+	End If
+End Function
+
+Function SetCursor(ByVal row, ByVal column)
+	'Setzt den Cursor um
+	
+	autECLSession.autECLOIA.WaitForAppAvailable
+	autECLSession.autECLOIA.WaitForInputReady
+	autECLSession.autECLPS.SetCursorPos row, column
+End Function
+
+Function Reset()
+	'STRG
+	
+	autECLSession.autECLOIA.WaitForAppAvailable
+	autECLSession.autECLOIA.WaitForInputReady
+	call SendKeys("[reset]")
+End Function
+
+Function SendKeys(ByVal keys)
+	'Sendet die übergebene Taste an den IBM I-Client
+
+	autECLSession.autECLOIA.WaitForAppAvailable
+	autECLSession.autECLOIA.WaitForInputReady
+	autECLSession.autECLPS.SendKeys keys
+End Function
+
+'				Windows 
+'''''''''''''''''''''''''''''''''''''''''''''
+Sub WinKillProcess(ByVal app)
+	'Laufenden OpenOffice Process beenden.
+	
+	Dim objShell
+	set objShell = CreateObject("Wscript.Shell")
+	objShell.Run "taskkill /f /im " & app, , TRUE
+End Sub
+
+Function WinDeleteFile(ByVal file)
+	'Wenn übergebene Datei vorhanden wird diese gelöscht, gibt True oder False zurück
+	
+	Dim objFSO
+	set objFSO = CreateObject("Scripting.FileSystemObject")
+	If objFSO.FileExists(file) = TRUE Then
+		objFSO.DeleteFile(file)
+		WinDeleteFile = CBool(True)
+	Else
+		WinDeleteFile = CBool(FALSE)
+	End If
+End Function
