@@ -38,7 +38,7 @@ End Function
 Dim wgr, wgr1, wgr2, uwgr, bezeichnung, artNummer, resultfile, markt, wenigerals
 Dim objArtikel(), objSheet
 Dim objSM, objDesk, UnixPath
-Dim objDoc, objStyleFamilies, objStyle, objPageStyles, objCell, loadDocument(0)
+Dim objDoc, objStyleFamilies, objStyle, objPageStyles, objCell, loadDocument(0), saveDocument(2)
 ReDim Preserve objArtikel(0)
 
 wgr = InputBox("Hauptwarengruppen: ", "Auswahl: ", "500")
@@ -52,11 +52,8 @@ wenigerals = CInt(InputBox("Ausstellungsbestand ist weniger als ...: ", "Auswahl
 uwgr = "****"
 bezeichnung = ""
 markt = "006"
-resultfile = "c:\download\bestandsliste_" & wgr & ".ods"
-call ConvertToURL(resultfile)
+resultfile = ConvertToURL("c:\download\bestandsliste_" & wgr & ".ods")
 call WinKillProcess("soffice.bin")
-'If InStr(resultfile, "file:///") = 0 Then resultfile = "file:///" & Replace(resultfile, "\", "/")
-'call WinDeleteFile(resultfile)
 
 'erstelle Active-X COM-Object für OpenOffice
 Set objSM = CreateObject("com.sun.star.ServiceManager")
@@ -65,7 +62,7 @@ Set objDesk = objSM.createInstance("com.sun.star.frame.Desktop")
 'Initialisiert die Calc-File im Hintergrund
 Set loadDocument(0) = objSM.Bridge_GetStruct("com.sun.star.beans.PropertyValue")
 loadDocument(0).Name = "Hidden"
-loadDocument(0).Value = TRUE
+loadDocument(0).Value = True
 set objDoc = objDesk.loadComponentFromURL("private:factory/scalc", "_blank", 0, loadDocument)
 
 'Artikelliste aus AS400 abrufen
@@ -139,7 +136,13 @@ For i=0 To (UBound(objArtikel)-1) 'Schleife durchläuft alle Artikel-Objekte und
 	'Prüft ob der aktuelle Artikel einer anderen WGR zugeortnen ist als der vorherige um dann eine neue Tabelle zu erstellen
 	If objArtikel(i).WGR <> tempwgr AND objArtikel(i).WGR <> 0 Then
 		'Tabellen aufbau
-		wgrcounter=wgrcounter+1
+		wgrcounter=wgrcounter+1 
+		If wgrcounter > 1 Then
+			'läd die aktive Tabelle für den Dispatcher ins objDoc
+			call objDoc.getCurrentController.setActiveSheet(objDoc.getSheets().getByName(objArtikel(i-1).WGR))
+			'Rahmen in und um die Tabelle ziehen
+			call borderLines(objSM, objDoc, "A", "1", "H", ii) 
+		End If
 		If objDoc.Sheets.hasByName("Tabelle" & wgrcounter) = False Then
 			call objDoc.Sheets.insertNewByName("Tabelle" & wgrcounter, 2)
 		End If
@@ -158,8 +161,6 @@ For i=0 To (UBound(objArtikel)-1) 'Schleife durchläuft alle Artikel-Objekte und
 			call ChangeCellColor(ci, 0, "lgrey", "ods", objSheet)
 			objSheet.getCellByPosition(ci, 0).HoriJustify = 2
 		Next
-		'objCellRange = objSheet.getCellRangeByPosition(0,0,7,0)
-
 		tempwgr=objArtikel(i).WGR
 		ii=1
 	End If
@@ -168,7 +169,7 @@ For i=0 To (UBound(objArtikel)-1) 'Schleife durchläuft alle Artikel-Objekte und
 	call WriteToCell(1, ii, objArtikel(i).Name, "ods", objSheet)
 	call WriteToCell(2, ii, objArtikel(i).Name2, "ods", objSheet)
 	If objArtikel(i).Auslauf = True Then
-		call WriteToCell(3, ii, "<b> X ", "ods", objSheet) 
+		call WriteToCell(3, ii, "<b> X ", "ods", objSheet)
 		objSheet.getCellByPosition(3, ii).HoriJustify = 2
 	End If
 	call WriteToCell(4, ii, objArtikel(i).IWV, "ods", objSheet): objSheet.getCellByPosition(4, ii).HoriJustify = 2
@@ -176,24 +177,21 @@ For i=0 To (UBound(objArtikel)-1) 'Schleife durchläuft alle Artikel-Objekte und
 	call WriteToCell(6, ii, objArtikel(i).Ausstellung, "ods", objSheet): objSheet.getCellByPosition(6, ii).HoriJustify = 2
 	ii=ii+1
 Next
-
+'läd die aktive Tabelle für den Dispatcher ins objDoc
+call objDoc.getCurrentController.setActiveSheet(objDoc.getSheets().getByName(tempwgr))
+call borderLines(objSM, objDoc, "A", "1", "H", ii) 'Rahmen in und um die Tabelle ziehen
 'ändern der Calc-File Eigenschaften.
-loadDocument(0).Name = "Overwrite"
-loadDocument(0).Value = TRUE
-loadDocument(0).Name = "Hidden"
-loadDocument(0).Value = False
-loadDocument(0).Name = "MakroExecutionMode"
-loadDocument(0).Value = 3
-call objDoc.storeAsURL(resultfile, loadDocument) 'Speichern
+For i=0 To 2
+	Set saveDocument(i) = objSM.Bridge_GetStruct("com.sun.star.beans.PropertyValue")
+Next
+saveDocument(0).Name = "Overwrite"
+saveDocument(0).Value = TRUE
+saveDocument(1).Name = "Hidden"
+saveDocument(1).Value = False
+saveDocument(2).Name = "MakroExecutionMode"
+saveDocument(2).Value = 3
+call objDoc.storeAsURL(resultfile, saveDocument) 'Speichern
 MsgBox("Fertig! ")
-If FileUsed3Partie(resultfile) Then  'Prüfung ob Datei geöffnet werden kann ohne bedenken
-	call objDoc.Close(True)
-	call WinKillProcess("soffice.bin")
-Else 
-	set objDoc = objDesk.loadComponentFromURL(resultfile, "_blank", 0, loadDocument) 'Öffnen der Calc-File
-	set objDoc = nothing
-	set objSheet = nothing
-	Set objSM = nothing
-	Set objDesk = nothing
-	set objSheet = nothing
-End If
+objDoc.getCurrentController().getFrame().getContainerWindow().setVisible(true) 'Calc wird sichtbar gemacht.
+
+

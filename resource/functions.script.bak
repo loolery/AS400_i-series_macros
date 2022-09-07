@@ -52,55 +52,6 @@ Function SearchFile(byVal directory)
 	End If
 End Function
 
-Function ListSort(byVal arraylist(), casesensitiv, sortway)
-' Diese Funktion sortiert ein übergebenes Array entweder aufsteigend
-' oder absteigend. Verwendet wird BubbleSort als Algorythmus.
-'
-' arraylist()	->	die zu sortiernede Liste
-' casesensitiv	->	Sortierflag: true = case-Sensitiv, false = case-Insensitiv
-' sortway		->	Sortierflag - true = aufsteigend, false = absteigend
-'
-' return		->	array() die fertig sortierte Liste
-	dim i, n, t
-	dim tempspace
-	
-	n = UBound(arraylist)
-	For i = 1 to n-1
-		For t = 0 to n-i
-			If sortway Then 'aufsteigend
-				If casesensitiv Then
-					If arraylist(t) > arraylist(t+1) Then
-					tempspace = arraylist(t)
-					arraylist(t) = arraylist(t+1)
-					arraylist(t+1) = tempspace
-					End If
-				Else
-					If lCase(arraylist(t)) > LCase(arraylist(t+1)) Then
-						tempspace = arraylist(t)
-						arraylist(t) = arraylist(t+1)
-						arraylist(t+1) = tempspace
-					End If
-				End If
-			Else 'absteigend
-				If casesensitiv Then 'Casesensitiv
-					If arraylist(t) < arraylist(t+1) Then
-						tempspace = arraylist(t)
-						arraylist(t) = arraylist(t+1)
-						arraylist(t+1) = tempspace
-					End If
-				Else 'Caseinsensitiv
-					If LCase(arraylist(t)) < LCase(arraylist(t+1)) Then
-						tempspace = arraylist(t)
-						arraylist(t) = arraylist(t+1)
-						arraylist(t+1) = tempspace
-					End If
-				End If
-			End If
-		Next
-	Next
-	ListSort = arraylist
-End Function
-
 Public Function InStrRegEx(ByVal searchIn, ByVal searchFor, ByVal opt)
 	'opt=false gibt den gefundenen Ausdruck zurück, opt=true die stelle wo er gefunden wurde
 	Dim regEx, found
@@ -221,13 +172,14 @@ Function TodayDate()
 	End If
 	TodayDate = realdate & Month(now) & "." & Year(now)
 End Function
-Function ConvertToURL(byVal path)
+Function ConvertToURL(byRef path)
 	'passt Windows Pfade für das Unix-Pfadsystem von OpenOffice an 
 	if (lcase(left(trim(path), 5)) = "file:") OR (lcase(left(trim(path), 5)) = "http:") then
 		'ist ein file: oder http: vorran gestellt, wird der Pfad nicht mehr angepasst
 	Else
+		if NOT (right(path, 1) = "\") then path = path & "\"
 		If InStr(path, "file:///") = 0 Then
-			ConvertToURL = "file:///" & Replace(path, "\", "/")
+			path = "file:///" & Replace(path, "\", "/")
 		End If
 	End If
 End Function
@@ -300,23 +252,22 @@ Public Function GetCellData(ByVal rrow, ByVal rcol, ByVal FileExt, ByRef objShee
 	'			 objSheet (enthält das Tabellen Object)
 	
 	If FileExt = "ods" OR FileExt = ".ods" Then
-		Dim objCell, result
+		Dim objCell
 		set objCell = objSheet.getCellByPosition(rrow, rcol) 
 		If objCell.getType() = 1 Then
-			result = objCell.getValue()
+			GetCellData = objCell.getValue()
 		ELseIf objCell.getType() = 2 Then
-			result = objCell.getString()
+			GetCellData = objCell.getString()
 		Else
-			result = CInt(0)
+			GetCellData = CInt(0)
 		End If
 		set objCell = nothing
 	ElseIf FileExt = "xls" OR FileExt = ".xls" Then  
 		' ... Excel ...
-		result = objSheet.Cells(rrow + 1, rcol + 1).value
+		GetCellData = objSheet.Cells(rrow + 1, rcol + 1).value
 	Else
 		MsgBox("Fehler beim lesen aus Zelle!")
 	End If
-	GetCellData = join(split(result," ") , chr(13))
 End Function
 
 Function ChangeCellColor(ByVal wrow, ByVal wcol, ByVal Color, ByVal FileExt, ByRef objSheet)
@@ -359,98 +310,6 @@ Function ChangeCellColor(ByVal wrow, ByVal wcol, ByVal Color, ByVal FileExt, ByR
 	Else
 		MsgBox("Fehler beim ändern der Hintergrundfarbe der Zelle!")
 	End If
-End Function
-
-Function Dispatcher(byVal objSM, byVal objDoc, byVal patchname, byVal patchvalue, byVal patchurl)
-	Dim propertys(0)
-	Dim i, dispatch, objFrame
-	
-	Set propertys(0) = objSM.Bridge_GetStruct("com.sun.star.beans.PropertyValue")
-	set objFrame = objDoc.getCurrentController.getFrame
-	Set dispatch = objSM.CreateInstance("com.sun.star.frame.DispatchHelper")
-	If IsEmpty(dispatch) OR isNull(dispatch) Then MsgBox("OpenOffice Dispatcher nicht verfügbar!")
-	
-	propertys(0).Name = patchname
-	propertys(0).Value = patchvalue
-	call dispatch.executeDispatch(objFrame, patchurl,"_self",0, propertys)
-End Function
-
-Function borderLines(byVal objSM, byVal objDoc, byVal frompoint, byVal frompoint2, byVal topoint, byVal topoint2)
-	Dim propertys(0), propertys2(12)
-	Dim i, dispatch, objFrame
-	
-	Set propertys(0) = objSM.Bridge_GetStruct("com.sun.star.beans.PropertyValue")
-	For i=0 To 12
-		Set propertys2(i) = objSM.Bridge_GetStruct("com.sun.star.beans.PropertyValue")
-	Next
-	set objFrame = objDoc.getCurrentController.getFrame
-	Set dispatch = objSM.CreateInstance("com.sun.star.frame.DispatchHelper")
-	If IsEmpty(dispatch) OR isNull(dispatch) Then MsgBox("OpenOffice Dispatcher nicht verfügbar!")
-	
-	propertys(0).Name = "ToPoint"
-	propertys(0).Value = "$" & frompoint & "$" & CStr(frompoint2) &":$" & topoint & "$" & CStr(topoint2)
-	call dispatch.executeDispatch(objFrame, ".uno:GoToCell","_self",0, propertys)
-	
-	propertys2(0).Name = "OuterBorder.LeftBorder"
-	propertys2(0).Value = Array(0,0,2,0)
-	propertys2(1).Name = "OuterBorder.LeftDistance"
-	propertys2(1).Value = 0
-	propertys2(2).Name = "OuterBorder.RightBorder"
-	propertys2(2).Value = Array(0,0,2,0)
-	propertys2(3).Name = "OuterBorder.RightDistance"
-	propertys2(3).Value = 0
-	propertys2(4).Name = "OuterBorder.TopBorder"
-	propertys2(4).Value = Array(0,0,2,0)
-	propertys2(5).Name = "OuterBorder.TopDistance"
-	propertys2(5).Value = 0
-	propertys2(6).Name = "OuterBorder.BottomBorder"
-	propertys2(6).Value = Array(0,0,2,0)
-	propertys2(7).Name = "OuterBorder.BottomDistance"
-	propertys2(7).Value = 0
-	propertys2(8).Name = "InnerBorder.Horizontal"
-	propertys2(8).Value = Array(0,0,2,0)
-	propertys2(9).Name = "InnerBorder.Vertical"
-	propertys2(9).Value = Array(0,0,2,0)
-	propertys2(10).Name = "InnerBorder.Flags"
-	propertys2(10).Value = 0
-	propertys2(11).Name = "InnerBorder.ValidFlags"
-	propertys2(11).Value = 127
-	propertys2(12).Name = "InnerBorder.DefaultDistance"
-	propertys2(12).Value = 0
-	call dispatch.executeDispatch(objFrame, ".uno:SetBorderStyle","_self",0, propertys2)
-	For i=0 To 1
-		propertys2(0).Name = "OuterBorder.LeftBorder"
-		propertys2(0).Value = Array(0,0,88,0)
-		propertys2(1).Name = "OuterBorder.LeftDistance"
-		propertys2(1).Value = 0
-		propertys2(2).Name = "OuterBorder.RightBorder"
-		propertys2(2).Value = Array(0,0,88,0)
-		propertys2(3).Name = "OuterBorder.RightDistance"
-		propertys2(3).Value = 0
-		propertys2(4).Name = "OuterBorder.TopBorder"
-		propertys2(4).Value = Array(0,0,88,0)
-		propertys2(5).Name = "OuterBorder.TopDistance"
-		propertys2(5).Value = 0
-		propertys2(6).Name = "OuterBorder.BottomBorder"
-		propertys2(6).Value = Array(0,0,88,0)
-		propertys2(7).Name = "OuterBorder.BottomDistance"
-		propertys2(7).Value = 0
-		propertys2(8).Name = "InnerBorder.Horizontal"
-		propertys2(8).Value = Array(0,0,0,0)
-		propertys2(9).Name = "InnerBorder.Vertical"
-		propertys2(9).Value = Array(0,0,0,0)
-		propertys2(10).Name = "InnerBorder.Flags"
-		propertys2(10).Value = 0
-		propertys2(11).Name = "InnerBorder.ValidFlags"
-		propertys2(11).Value = 79
-		propertys2(12).Name = "InnerBorder.DefaultDistance"
-		propertys2(12).Value = 0
-		call dispatch.executeDispatch(objFrame, ".uno:SetBorderStyle","_self",0, propertys2)
-		propertys(0).Name = "ToPoint"
-		propertys(0).Value = "$" & frompoint & "$" & CStr(frompoint2) & ":$" & topoint & "$" & CStr(frompoint2)
-		call dispatch.executeDispatch(objFrame, ".uno:GoToCell","_self",0, propertys)
-		call dispatch.executeDispatch(objFrame, ".uno:SetBorderStyle","_self",0, propertys2)
-	Next
 End Function
 
 ' 				AS400 

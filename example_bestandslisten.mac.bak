@@ -33,7 +33,6 @@ Function LoadFile(byVal file)
 	
 	LoadFile = objUpdateString
 End Function
-
 '###############################################################
 
 Dim wgr, wgr1, wgr2, uwgr, bezeichnung, artNummer, resultfile, markt, wenigerals

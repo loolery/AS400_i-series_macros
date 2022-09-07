@@ -1191,12 +1191,8 @@ Class Auftrag
 				If InStr(1, TextString, " Baumarkt", 0) = 0 Then TextString = TextString & " Baumarkt"
 			Elseif (auf_posObject(i).WGR >= 800) AND (auf_posObject(i).WGR < 890) Then
 				If InStr(1, TextString, " M" & ChrW(246) & "bel", 0) = 0 Then TextString = TextString & " M" & ChrW(246) & "bel"
-			Elseif auf_posObject(i).WGR > 890 AND auf_posObject(i).WGR < 900 Then
+			Elseif auf_posObject(i).WGR >= 890 Then
 				If InStr(1, TextString, " K" & ChrW(252) & "chen", 0) = 0 Then TextString = TextString & " K" & ChrW(252) & "chen"
-			Elseif auf_posObject(i).WGR = 900 Then
-				If InStr(1, TextString, " Hansetrans", 0) = 0 Then TextString = TextString & " Hansetrans"
-			Elseif auf_posObject(i).WGR = 901 Then
-				If InStr(1, TextString, " N" & ChrW(228) & "hauftrag", 0) = 0 Then TextString = TextString & " N" & ChrW(228) & "hauftrag"
 			Else Exit Property
 			End If
 			' Select Case auf_posObject(i).WGR
@@ -1484,7 +1480,7 @@ Class Auftrag
 							'Stück oder Meter suche!
 							If IsMeterware(auf_posObject(r).WGR) = True Then
 								s = "m" 
-								If auf_posObject(r).WGR < 200 Then s = s & ChrW(178)
+								If auf_posObject(r).WGR < 300 Then s = s & ChrW(178)
 							Else 
 								s = "x"
 							End If
@@ -1635,6 +1631,7 @@ Class Auftrag
 			SendKeys("[enter]")
 			call SendKeys("[pf1]")
 			Dim strcut: strcut = CInt(len(tkString)-2)
+			MsgBox(tkString & " : " & strcut)
 			tkString = Right(tkString, strcut)	
 		Loop While tkString <> ""
 		call SendKeys("[pf3][pf3]")
